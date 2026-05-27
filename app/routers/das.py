@@ -1,14 +1,12 @@
 import sys
 import uuid
 import asyncio
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 
-BR_TZ = ZoneInfo("America/Sao_Paulo")
-
 def _agora() -> str:
-    return datetime.now(BR_TZ).isoformat()
+    """Retorna ISO string no horário de Brasília (UTC-3)."""
+    return (datetime.utcnow() - timedelta(hours=3)).isoformat()
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session

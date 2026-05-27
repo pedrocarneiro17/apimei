@@ -2,17 +2,15 @@
 Operações de banco de dados — inserção com controle de duplicados,
 busca de registros e gestão de jobs.
 """
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from . import models
 
-BR_TZ = ZoneInfo("America/Sao_Paulo")
-
 
 def _agora() -> datetime:
-    return datetime.now(BR_TZ)
+    """Retorna datetime atual no horário de Brasília (UTC-3)."""
+    return datetime.utcnow() - timedelta(hours=3)
 
 
 # ── DASRegistro ──────────────────────────────────────────────────────────────

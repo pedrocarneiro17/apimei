@@ -3,19 +3,18 @@ Scraper PGMEI — automatiza a Receita Federal para coletar situação dos DAS.
 """
 import os
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
+from datetime import timedelta
 
 URL_BASE  = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
 HEADLESS  = os.getenv("HEADLESS", "false").lower() == "true"
 PAUSA_MS  = int(os.getenv("PAUSA_MS", "1500"))
-BR_TZ     = ZoneInfo("America/Sao_Paulo")
 
 
 def _agora() -> datetime:
-    """Retorna datetime atual no fuso de Brasília."""
-    return datetime.now(BR_TZ)
+    """Retorna datetime atual no horário de Brasília (UTC-3)."""
+    return datetime.utcnow() - timedelta(hours=3)
 
 MESES_PT = {
     "janeiro": 1, "fevereiro": 2, "março": 3, "abril": 4,

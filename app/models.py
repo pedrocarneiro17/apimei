@@ -3,13 +3,11 @@ from sqlalchemy import (
     LargeBinary, Text, JSON, UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-BR_TZ = ZoneInfo("America/Sao_Paulo")
+from datetime import datetime, timedelta
 
 def _agora():
-    return datetime.now(BR_TZ)
+    """Retorna datetime atual no horário de Brasília (UTC-3)."""
+    return datetime.utcnow() - timedelta(hours=3)
 
 Base = declarative_base()
 
