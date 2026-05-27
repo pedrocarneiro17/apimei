@@ -1,10 +1,14 @@
+import secrets
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..auth import esta_logado, exige_login_pagina, LOGIN_USER, LOGIN_PASS
+from ..auth import (
+    esta_logado, exige_login_pagina,
+    LOGIN_USER, LOGIN_PASS, registrar_falha_login,
+)
 from .. import crud
 
 router    = APIRouter(tags=["Interface"])
@@ -27,9 +31,26 @@ async def login_submit(
     senha:   str = Form(...),
     next:    str = Form(default="/"),
 ):
-    if usuario == LOGIN_USER and senha == LOGIN_PASS:
+    ip = request.client.host if request.client else "unknown"
+
+    # Rate limiting: bloqueia IP com muitas tentativas falhas
+    if registrar_falha_login(ip):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "erro": "Muitas tentativas. Aguarde 1 minuto.",
+            "next": next,
+        }, status_code=429)
+
+    # Comparação em tempo constante (evita timing attacks)
+    usuario_ok = secrets.compare_digest(usuario.encode(), LOGIN_USER.encode()) if LOGIN_USER else False
+    senha_ok   = secrets.compare_digest(senha.encode(),   LOGIN_PASS.encode()) if LOGIN_PASS else False
+
+    if usuario_ok and senha_ok:
         request.session["autenticado"] = True
-        return RedirectResponse(url=next or "/", status_code=302)
+        # Valida redirect para evitar Open Redirect
+        destino = next if next and next.startswith("/") else "/"
+        return RedirectResponse(url=destino, status_code=302)
+
     return templates.TemplateResponse("login.html", {
         "request": request,
         "erro": "Usuário ou senha incorretos.",
