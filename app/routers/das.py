@@ -70,7 +70,7 @@ async def processar_das(request: Request, req: ProcessarRequest, db: Session = D
             "tipo": type(exc).__name__,
             "mensagem": str(exc),
             "etapa": "scraper",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": _agora(),
         }
         crud.finalizar_job_erro(db, job, erro)
         return ProcessarResponse(

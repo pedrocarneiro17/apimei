@@ -4,6 +4,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+BR_TZ = ZoneInfo("America/Sao_Paulo")
+
+def _agora():
+    return datetime.now(BR_TZ)
 
 Base = declarative_base()
 
@@ -26,8 +32,8 @@ class DASRegistro(Base):
     data_acolhimento = Column(String(10), nullable=True)
     pdf              = Column(LargeBinary, nullable=True)
     pdf_gerado_em    = Column(DateTime, nullable=True)
-    criado_em        = Column(DateTime, default=datetime.utcnow)
-    atualizado_em    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    criado_em        = Column(DateTime, default=_agora)
+    atualizado_em    = Column(DateTime, default=_agora, onupdate=_agora)
 
     __table_args__ = (
         UniqueConstraint("cnpj", "ano", "mes", name="uq_das_cnpj_ano_mes"),
@@ -44,7 +50,7 @@ class DASJob(Base):
     nome             = Column(String(200), nullable=True)
     status           = Column(String(20), nullable=False, default="processando")
     # pendente | processando | concluido | erro
-    iniciado_em      = Column(DateTime, default=datetime.utcnow)
+    iniciado_em      = Column(DateTime, default=_agora)
     finalizado_em    = Column(DateTime, nullable=True)
     duracao_segundos = Column(Numeric(8, 2), nullable=True)
     resumo           = Column(JSON, nullable=True)

@@ -127,7 +127,7 @@ async def processar_das(cnpj: str, ano: str) -> dict:
                 try:
                     pdf = await _gerar_pdf_mes(page, context, mes_data["periodo"], ano)
                     mes_data["pdf"] = pdf
-                    mes_data["pdf_gerado_em"] = datetime.utcnow().isoformat()
+                    mes_data["pdf_gerado_em"] = _agora().isoformat()
                     if not pdf:
                         mes_data["pdf_erro"] = "PDF não capturado (resposta vazia)"
                 except Exception as exc:

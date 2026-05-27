@@ -105,7 +105,7 @@ def finalizar_job_sucesso(db: Session, job: models.DASJob,
                            resumo: dict) -> models.DASJob:
     job.status            = "concluido"
     job.nome              = nome
-    job.finalizado_em     = datetime.utcnow()
+    job.finalizado_em     = _agora()
     job.duracao_segundos  = duracao
     job.resumo            = resumo
     db.commit()
@@ -115,7 +115,7 @@ def finalizar_job_sucesso(db: Session, job: models.DASJob,
 
 def finalizar_job_erro(db: Session, job: models.DASJob, erro: dict) -> models.DASJob:
     job.status        = "erro"
-    job.finalizado_em = datetime.utcnow()
+    job.finalizado_em = _agora()
     job.erro_tipo     = erro.get("tipo")
     job.erro_mensagem = erro.get("mensagem")
     job.erro_etapa    = erro.get("etapa")
