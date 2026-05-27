@@ -12,7 +12,13 @@ else:
     # Railway provê postgres://, SQLAlchemy exige postgresql://
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=20,       # conexões persistentes no pool
+        max_overflow=10,    # conexões extras se o pool estiver cheio
+        pool_timeout=30,    # segundos de espera por uma conexão livre
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -20,7 +20,7 @@ from ..schemas import (
 )
 from .. import crud, scraper
 
-_executor = ThreadPoolExecutor(max_workers=4)
+_executor = ThreadPoolExecutor(max_workers=15)
 
 
 def _rodar_scraper(cnpj: str, ano: str) -> dict:
