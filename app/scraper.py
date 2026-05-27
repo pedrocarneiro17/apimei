@@ -2,14 +2,17 @@
 Scraper PGMEI — automatiza a Receita Federal para coletar situação dos DAS.
 """
 import os
-from datetime import datetime
+import random
+import asyncio
+from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
-from datetime import timedelta
 
-URL_BASE  = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
-HEADLESS  = os.getenv("HEADLESS", "false").lower() == "true"
-PAUSA_MS  = int(os.getenv("PAUSA_MS", "1500"))
+URL_BASE      = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
+HEADLESS      = os.getenv("HEADLESS", "false").lower() == "true"
+PAUSA_MS      = int(os.getenv("PAUSA_MS", "1500"))
+# Delay aleatório máximo antes de abrir o browser (evita burst de requisições simultâneas)
+DELAY_MAX_S   = int(os.getenv("DELAY_MAX_S", "10"))
 
 
 def _agora() -> datetime:
@@ -38,6 +41,10 @@ async def processar_das(cnpj: str, ano: str) -> dict:
     Processa o PGMEI para CNPJ/ano e retorna dados de todos os meses.
     PDFs são gerados individualmente para: Devedor, mês atual e mês seguinte.
     """
+    # Spread aleatório: evita que chamadas simultâneas batam no site ao mesmo tempo
+    if DELAY_MAX_S > 0:
+        await asyncio.sleep(random.uniform(0, DELAY_MAX_S))
+
     inicio = _agora()
     resultado = {
         "cnpj": cnpj, "ano": ano, "nome": None,
