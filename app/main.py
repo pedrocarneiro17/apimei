@@ -10,10 +10,13 @@ if sys.platform == "win32":
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from .database import engine
 from .models import Base
 from .routers import das, health, pages
+
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")]
 
 SECRET_KEY = os.getenv("SECRET_KEY", "troque-por-uma-chave-secreta-longa")
 
@@ -29,6 +32,14 @@ app = FastAPI(
     description="API + Interface para geração e controle de guias DAS do MEI.",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Sessão assinada (necessária para login)
