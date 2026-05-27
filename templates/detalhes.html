@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Detalhes {{ cnpj }} / {{ ano }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+  <a href="/" class="text-brand-600 hover:underline text-sm">← Voltar</a>
+  <h1 class="text-xl font-bold text-gray-800">
+    {{ cnpj[:2] }}.{{ cnpj[2:5] }}.{{ cnpj[5:8] }}/{{ cnpj[8:12] }}-{{ cnpj[12:] }} — {{ ano }}
+  </h1>
+</div>
+
+{% if not registros %}
+  <div class="bg-white rounded-2xl border p-10 text-center text-gray-400">
+    Nenhum registro encontrado para este CNPJ/ano.
+  </div>
+{% else %}
+<div class="bg-white rounded-2xl border shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-4 py-3 text-left">Período</th>
+          <th class="px-4 py-3 text-left">Situação</th>
+          <th class="px-4 py-3 text-right">Principal</th>
+          <th class="px-4 py-3 text-right">Multa</th>
+          <th class="px-4 py-3 text-right">Total</th>
+          <th class="px-4 py-3 text-left">Vencimento</th>
+          <th class="px-4 py-3 text-center">PDF</th>
+          <th class="px-4 py-3 text-left">Criado em</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in registros %}
+        <tr class="{% if 'Devedor' in r.situacao %}bg-red-50{% endif %} hover:bg-gray-50 transition">
+          <td class="px-4 py-3 font-medium">{{ r.periodo }}</td>
+          <td class="px-4 py-3">
+            {% if 'Liquidado' in r.situacao %}
+              <span class="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ r.situacao }}</span>
+            {% elif 'Devedor' in r.situacao %}
+              <span class="bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ r.situacao }}</span>
+            {% else %}
+              <span class="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ r.situacao }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right text-gray-600">
+            {% if r.principal %}R$ {{ "%.2f"|format(r.principal|float) }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right text-gray-600">
+            {% if r.multa %}R$ {{ "%.2f"|format(r.multa|float) }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right font-semibold">
+            {% if r.total %}R$ {{ "%.2f"|format(r.total|float) }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-600">
+            {% if r.data_vencimento %}
+              {{ r.data_vencimento[8:10] }}/{{ r.data_vencimento[5:7] }}/{{ r.data_vencimento[:4] }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center">
+            {% if r.pdf %}
+              <a href="/das/{{ cnpj }}/{{ ano }}/{{ r.mes }}/pdf" target="_blank"
+                 class="inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1 rounded-lg transition">
+                ↓ PDF
+              </a>
+            {% else %}
+              <span class="text-gray-300 text-xs">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-400 text-xs">
+            {{ r.criado_em.strftime('%d/%m/%Y %H:%M') if r.criado_em else '—' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

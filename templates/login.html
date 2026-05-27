@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Login — PGMEI DAS{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+  <div class="w-full max-w-sm">
+
+    <!-- Logo / título -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-brand-700 rounded-2xl mb-4 shadow-lg">
+        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+          <path d="M8 14h8v2H8zm0-4h5v2H8z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-800">PGMEI DAS</h1>
+      <p class="text-gray-500 text-sm mt-1">Acesse sua conta para continuar</p>
+    </div>
+
+    <!-- Card de login -->
+    <div class="bg-white rounded-2xl shadow-sm border p-8">
+
+      {% if erro %}
+      <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5 flex items-center gap-2 text-sm text-red-700">
+        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        {{ erro }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="/login">
+        <input type="hidden" name="next" value="{{ next }}" />
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+          <input
+            type="text" name="usuario" autofocus autocomplete="username"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+            placeholder="Digite seu usuário"
+          />
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+          <input
+            type="password" name="senha" autocomplete="current-password"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+            placeholder="Digite sua senha"
+          />
+        </div>
+
+        <button type="submit"
+          class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+          Entrar
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-xs text-gray-400 mt-6">
+      PGMEI DAS · Receita Federal – Simples Nacional
+    </p>
+  </div>
+</div>
+{% endblock %}

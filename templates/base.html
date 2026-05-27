@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}PGMEI DAS{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0fdf4', 100:'#dcfce7', 500:'#22c55e', 600:'#16a34a', 700:'#15803d', 800:'#166534' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .fade-in { animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+
+  <!-- Navbar -->
+  <nav class="bg-brand-700 shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <div class="bg-white rounded-lg p-1.5">
+          <svg class="w-6 h-6 text-brand-700" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+            <path d="M8 14h8v2H8zm0-4h5v2H8z"/>
+          </svg>
+        </div>
+        <div class="text-white">
+          <div class="font-bold text-lg leading-none">PGMEI DAS</div>
+          <div class="text-brand-100 text-xs">Guias do Microempreendedor Individual</div>
+        </div>
+      </a>
+      <div class="flex gap-4 text-sm text-brand-100">
+        <a href="/" class="hover:text-white transition">Início</a>
+        <a href="/health" class="hover:text-white transition" target="_blank">Status API</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Conteúdo -->
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center text-xs text-gray-400 py-6 border-t mt-auto">
+    PGMEI DAS API · Dados via Receita Federal – Simples Nacional
+  </footer>
+
+</body>
+</html>
