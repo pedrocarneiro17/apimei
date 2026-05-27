@@ -99,12 +99,25 @@ async def processar_das(cnpj: str, ano: str) -> dict:
                     etapa,
                 )
 
-            # Extrai nome do MEI da barra de info
+            # Extrai nome do MEI — tenta vários seletores possíveis
             etapa = "extrair_nome"
             try:
-                info = await page.locator("p.cabecalho-informacoes, .row .col-md-12").first.inner_text()
-                if "Nome:" in info:
-                    resultado["nome"] = info.split("Nome:")[-1].strip()
+                seletores = [
+                    "p.cabecalho-informacoes",
+                    ".cabecalho-informacoes",
+                    ".row .col-md-12",
+                    "p:has-text('Nome:')",
+                    "div:has-text('Nome:')",
+                ]
+                for seletor in seletores:
+                    try:
+                        loc = page.locator(seletor).first
+                        info = await loc.inner_text(timeout=3000)
+                        if "Nome:" in info:
+                            resultado["nome"] = info.split("Nome:")[-1].split("\n")[0].strip()
+                            break
+                    except Exception:
+                        continue
             except Exception:
                 pass
 
