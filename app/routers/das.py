@@ -151,8 +151,11 @@ async def processar_das(request: Request, req: ProcessarRequest, db: Session = D
 # ── Rotas de jobs — ANTES das rotas com {cnpj}/{ano} para evitar conflito ───
 
 @router.get("/jobs/lista", summary="Lista todos os jobs")
-def listar_jobs(db: Session = Depends(get_db)):
+def listar_jobs(request: Request, db: Session = Depends(get_db)):
     """Retorna os últimos 50 jobs para o histórico da interface."""
+    auth = exige_login_api(request)
+    if auth:
+        return auth
     from ..models import DASJob
     jobs = (
         db.query(DASJob)
@@ -177,8 +180,11 @@ def listar_jobs(db: Session = Depends(get_db)):
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse,
             summary="Status de um job de processamento")
-def status_job(job_id: str, db: Session = Depends(get_db)):
+def status_job(job_id: str, request: Request, db: Session = Depends(get_db)):
     """Retorna o status completo de um job (sucesso, erro, duração, resumo)."""
+    auth = exige_login_api(request)
+    if auth:
+        return auth
     job = crud.buscar_job(db, job_id=job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job não encontrado")
@@ -206,7 +212,10 @@ def status_job(job_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{cnpj}/{ano}", response_model=MesListaResponse,
             summary="Lista meses de um CNPJ/ano")
-def listar_meses(cnpj: str, ano: str, db: Session = Depends(get_db)):
+def listar_meses(cnpj: str, ano: str, request: Request, db: Session = Depends(get_db)):
+    auth = exige_login_api(request)
+    if auth:
+        return auth
     registros = crud.buscar_registros(db, cnpj=cnpj, ano=ano)
     if not registros:
         raise HTTPException(status_code=404, detail="Nenhum registro encontrado para este CNPJ/ano")
@@ -231,7 +240,10 @@ def listar_meses(cnpj: str, ano: str, db: Session = Depends(get_db)):
 # ── GET /das/{cnpj}/{ano}/{mes}/pdf ──────────────────────────────────────────
 
 @router.get("/{cnpj}/{ano}/{mes}/pdf", summary="Download do PDF do DAS")
-def baixar_pdf(cnpj: str, ano: str, mes: int, db: Session = Depends(get_db)):
+def baixar_pdf(cnpj: str, ano: str, mes: int, request: Request, db: Session = Depends(get_db)):
+    auth = exige_login_api(request)
+    if auth:
+        return auth
     registro = crud.buscar_registro_mes(db, cnpj=cnpj, ano=ano, mes=mes)
     if not registro or not registro.pdf:
         raise HTTPException(
