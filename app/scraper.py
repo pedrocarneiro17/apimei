@@ -54,14 +54,16 @@ async def processar_das(cnpj: str, ano: str) -> dict:
         browser = await p.chromium.launch(
             channel="chrome",
             headless=HEADLESS,
-            args=(
-                ["--no-sandbox", "--disable-setuid-sandbox",
-                 "--disable-dev-shm-usage", "--disable-gpu"]
-                if HEADLESS else ["--start-maximized"]
-            ),
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--window-size=1920,1080",
+            ],
         )
         context = await browser.new_context(
-            no_viewport=None if HEADLESS else True,
+            viewport={"width": 1920, "height": 1080},
             accept_downloads=True,
         )
         page = await context.new_page()

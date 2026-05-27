@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y wget gnupg ca-certificates \
        http://dl.google.com/linux/chrome/deb/ stable main" \
        > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
-    && apt-get install -y google-chrome-stable \
+    && apt-get install -y google-chrome-stable xvfb \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -19,4 +19,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Inicia display virtual (Xvfb) para rodar Chrome "headed" — evita detecção de headless pelo hCaptcha
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac & sleep 1 && DISPLAY=:99 uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
