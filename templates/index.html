@@ -262,6 +262,8 @@ function painel() {
 
     init() {
       this.carregarHistorico();
+      // Atualiza o histórico automaticamente a cada 10s
+      setInterval(() => this.carregarHistorico(), 10000);
     },
 
     formatarCNPJ(v) {
