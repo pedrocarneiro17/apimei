@@ -26,7 +26,7 @@
           <th class="px-4 py-3 text-right">Total</th>
           <th class="px-4 py-3 text-left">Vencimento</th>
           <th class="px-4 py-3 text-center">PDF</th>
-          <th class="px-4 py-3 text-left">Criado em</th>
+          <th class="px-4 py-3 text-left">Atualizado em</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
@@ -67,7 +67,7 @@
             {% endif %}
           </td>
           <td class="px-4 py-3 text-gray-400 text-xs">
-            {{ r.criado_em.strftime('%d/%m/%Y %H:%M') if r.criado_em else '—' }}
+            {{ (r.atualizado_em or r.criado_em).strftime('%d/%m/%Y %H:%M') if (r.atualizado_em or r.criado_em) else '—' }}
           </td>
         </tr>
         {% endfor %}
