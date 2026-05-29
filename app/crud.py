@@ -127,3 +127,12 @@ def finalizar_job_erro(db: Session, job: models.DASJob, erro: dict) -> models.DA
 
 def buscar_job(db: Session, job_id: str) -> Optional[models.DASJob]:
     return db.query(models.DASJob).filter_by(id=job_id).first()
+
+
+def deletar_job(db: Session, job_id: str) -> bool:
+    job = db.query(models.DASJob).filter_by(id=job_id).first()
+    if not job:
+        return False
+    db.delete(job)
+    db.commit()
+    return True

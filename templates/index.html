@@ -4,6 +4,46 @@
 {% block content %}
 <div x-data="painel()" x-init="init()">
 
+  <!-- Modal de erro -->
+  <div x-show="erroModal" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 fade-in"
+       @click.self="erroModal = null">
+    <div class="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4">
+      <div class="flex items-start justify-between mb-4">
+        <h3 class="font-bold text-red-700 text-lg">Detalhes do Erro</h3>
+        <button @click="erroModal = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+      </div>
+      <dl class="space-y-3 text-sm">
+        <div>
+          <dt class="text-xs font-semibold text-gray-500 uppercase">Tipo</dt>
+          <dd class="text-gray-800 font-mono mt-0.5" x-text="erroModal?.erro_tipo || '—'"></dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold text-gray-500 uppercase">Mensagem</dt>
+          <dd class="text-gray-800 mt-0.5" x-text="erroModal?.erro_mensagem || '—'"></dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold text-gray-500 uppercase">Etapa</dt>
+          <dd class="text-gray-800 mt-0.5" x-text="erroModal?.erro_etapa || '—'"></dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold text-gray-500 uppercase">CNPJ / Ano</dt>
+          <dd class="text-gray-800 mt-0.5" x-text="formatarCNPJExibir(erroModal?.cnpj) + ' — ' + erroModal?.ano"></dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold text-gray-500 uppercase">Iniciado em</dt>
+          <dd class="text-gray-800 mt-0.5" x-text="formatDateTime(erroModal?.iniciado_em)"></dd>
+        </div>
+      </dl>
+      <div class="mt-5 flex justify-end">
+        <button @click="erroModal = null"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Título -->
   <div class="mb-8">
     <h1 class="text-2xl font-bold text-gray-800">Emissão de Guias DAS</h1>
@@ -236,8 +276,19 @@
                 <td class="px-4 py-3 text-gray-500 text-xs"
                     x-text="job.duracao_segundos ? job.duracao_segundos.toFixed(1) + 's' : '—'"></td>
                 <td class="px-4 py-3 text-center">
-                  <a :href="`/detalhes/${job.cnpj}/${job.ano}`"
-                     class="text-brand-600 hover:underline text-xs">Ver</a>
+                  <div class="flex items-center justify-center gap-3">
+                    <template x-if="job.status === 'erro'">
+                      <button @click="erroModal = job"
+                              class="text-red-500 hover:underline text-xs font-medium">Ver erro</button>
+                    </template>
+                    <template x-if="job.status !== 'erro'">
+                      <a :href="`/detalhes/${job.cnpj}/${job.ano}`"
+                         class="text-brand-600 hover:underline text-xs">Ver</a>
+                    </template>
+                    <button @click="apagar(job.job_id)"
+                            class="text-gray-300 hover:text-red-400 transition text-xs"
+                            title="Apagar log">✕</button>
+                  </div>
                 </td>
               </tr>
             </template>
@@ -259,6 +310,7 @@ function painel() {
     erro: null,
     resultado: null,
     historico: [],
+    erroModal: null,
 
     init() {
       this.carregarHistorico();
@@ -321,6 +373,14 @@ function painel() {
       try {
         const res = await fetch('/das/jobs/lista');
         if (res.ok) this.historico = await res.json();
+      } catch (_) {}
+    },
+
+    async apagar(jobId) {
+      if (!confirm('Apagar este log do histórico?')) return;
+      try {
+        const res = await fetch(`/das/jobs/${jobId}`, { method: 'DELETE' });
+        if (res.ok) this.historico = this.historico.filter(j => j.job_id !== jobId);
       } catch (_) {}
     },
 

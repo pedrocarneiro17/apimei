@@ -187,9 +187,24 @@ def listar_jobs(request: Request, db: Session = Depends(get_db)):
             "finalizado_em":    j.finalizado_em.isoformat() if j.finalizado_em else None,
             "duracao_segundos": float(j.duracao_segundos) if j.duracao_segundos else None,
             "resumo":           j.resumo,
+            "erro_tipo":        j.erro_tipo,
+            "erro_mensagem":    j.erro_mensagem,
+            "erro_etapa":       j.erro_etapa,
         }
         for j in jobs
     ]
+
+
+@router.delete("/jobs/{job_id}", summary="Remove um job do histórico")
+def deletar_job(job_id: str, request: Request, db: Session = Depends(get_db)):
+    """Apaga um job do histórico permanentemente."""
+    auth = exige_login_api(request)
+    if auth:
+        return auth
+    ok = crud.deletar_job(db, job_id=job_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    return {"ok": True}
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse,
