@@ -36,7 +36,7 @@ class ScraperError(Exception):
 
 # ── Entrada principal ────────────────────────────────────────────────────────
 
-async def processar_das(cnpj: str, ano: str) -> dict:
+async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -> dict:
     """
     Processa o PGMEI para CNPJ/ano e retorna dados de todos os meses.
     PDFs são gerados individualmente para: Devedor, mês atual e mês seguinte.
@@ -45,6 +45,7 @@ async def processar_das(cnpj: str, ano: str) -> dict:
     if DELAY_MAX_S > 0:
         await asyncio.sleep(random.uniform(0, DELAY_MAX_S))
 
+    meses_com_pdf = meses_com_pdf or set()
     inicio = _agora()
     resultado = {
         "cnpj": cnpj, "ano": ano, "nome": None,
@@ -52,7 +53,6 @@ async def processar_das(cnpj: str, ano: str) -> dict:
         "meses": [], "inicio": inicio.isoformat(),
     }
 
-    hoje    = _agora()          # fuso Brasília
     ano_int = int(ano)
     etapa   = "inicializacao"
 
@@ -136,7 +136,7 @@ async def processar_das(cnpj: str, ano: str) -> dict:
             etapa = "ler_tabela"
             await page.wait_for_selector("table tbody tr", timeout=20000)
             await page.wait_for_timeout(PAUSA_MS)
-            dados_meses = await _ler_tabela(page, ano_int, hoje)
+            dados_meses = await _ler_tabela(page, ano_int, meses_com_pdf)
 
             # ── 5. Gera PDFs mês a mês ───────────────────────────────
             etapa = "gerar_pdfs"
@@ -188,12 +188,9 @@ async def _selecionar_ano(page: Page, ano: str) -> None:
     await page.locator("button[type='submit']").click()
 
 
-async def _ler_tabela(page: Page, ano_int: int, hoje: datetime) -> list[dict]:
+async def _ler_tabela(page: Page, ano_int: int, meses_com_pdf: set) -> list[dict]:
     rows = await page.locator("table tbody tr").all()
     dados = []
-
-    mes_atual    = hoje.month if hoje.year == ano_int else None
-    mes_seguinte = (mes_atual % 12) + 1 if mes_atual else None
 
     for row in rows:
         tds = await row.locator("td").all_inner_texts()
@@ -205,7 +202,7 @@ async def _ler_tabela(page: Page, ano_int: int, hoje: datetime) -> list[dict]:
         nome_mes = periodo.split("/")[0].strip().lower()
         mes_num  = MESES_PT.get(nome_mes, 0)
 
-        precisa_pdf = _determinar_pdf(situacao, mes_num, mes_atual, mes_seguinte)
+        precisa_pdf = _determinar_pdf(situacao, mes_num, meses_com_pdf)
 
         dados.append({
             "periodo":          periodo,
@@ -226,20 +223,17 @@ async def _ler_tabela(page: Page, ano_int: int, hoje: datetime) -> list[dict]:
     return dados
 
 
-def _determinar_pdf(situacao: str, mes_num: int,
-                    mes_atual: int | None, mes_seguinte: int | None) -> bool:
+def _determinar_pdf(situacao: str, mes_num: int, meses_com_pdf: set) -> bool:
     """
     Regras de geração de PDF:
-      Devedor                        → sempre gera (mês em atraso)
-      A Vencer + mês atual           → gera (mês corrente)
-      A Vencer + mês seguinte        → gera (próximo mês)
-      Liquidado / demais A Vencer    → não gera
+      Devedor   → sempre gera PDF novo (juros acumulam todo dia)
+      A Vencer  → gera só se ainda não tem PDF no banco
+      Liquidado → não gera
     """
     if "Devedor" in situacao:
         return True
-    if "A Vencer" in situacao and mes_atual is not None:
-        # mes_seguinte trata virada de ano: dezembro(12) → janeiro(1)
-        return mes_num in (mes_atual, mes_seguinte)
+    if "A Vencer" in situacao:
+        return mes_num not in meses_com_pdf
     return False
 
 

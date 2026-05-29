@@ -23,7 +23,7 @@ from .. import crud, scraper
 _executor = ThreadPoolExecutor(max_workers=15)
 
 
-def _rodar_scraper(cnpj: str, ano: str) -> dict:
+def _rodar_scraper(cnpj: str, ano: str, meses_com_pdf: set) -> dict:
     """
     Executa o scraper em uma thread separada com loop próprio.
     Resolve o NotImplementedError do Playwright no Windows com uvicorn.
@@ -34,7 +34,9 @@ def _rodar_scraper(cnpj: str, ano: str) -> dict:
         loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        return loop.run_until_complete(scraper.processar_das(cnpj=cnpj, ano=ano))
+        return loop.run_until_complete(
+            scraper.processar_das(cnpj=cnpj, ano=ano, meses_com_pdf=meses_com_pdf)
+        )
     finally:
         loop.close()
 
@@ -60,9 +62,21 @@ async def processar_das(request: Request, req: ProcessarRequest, db: Session = D
     job     = crud.criar_job(db, job_id=job_id, cnpj=req.cnpj, ano=req.ano, payload=payload)
     agora   = _agora()
 
+    # Meses que já têm PDF A Vencer salvo → scraper não vai regenerar
+    # Devedor sempre regenera (juros muda todo dia)
+    registros_existentes = crud.buscar_registros(db, cnpj=req.cnpj, ano=req.ano)
+    meses_com_pdf = {
+        r.mes for r in registros_existentes
+        if r.pdf is not None and "Devedor" not in (r.situacao or "")
+    }
+
     try:
+        from functools import partial
         loop = asyncio.get_event_loop()
-        resultado = await loop.run_in_executor(_executor, _rodar_scraper, req.cnpj, req.ano)
+        resultado = await loop.run_in_executor(
+            _executor,
+            partial(_rodar_scraper, req.cnpj, req.ano, meses_com_pdf)
+        )
     except Exception as exc:
         erro = {
             "tipo": type(exc).__name__,

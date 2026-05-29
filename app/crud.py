@@ -41,10 +41,13 @@ def upsert_registro(db: Session, dados: dict) -> tuple[models.DASRegistro, bool,
         db.flush()
         return registro, True, False
 
-    nova_situacao  = dados.get("situacao", "")
-    situacao_mudou = existente.situacao != nova_situacao
-    pdf_novo       = dados.get("pdf") and existente.pdf is None
+    nova_situacao   = dados.get("situacao", "")
+    situacao_mudou  = existente.situacao != nova_situacao
     virou_liquidado = situacao_mudou and "Liquidado" in nova_situacao
+    eh_devedor      = "Devedor" in nova_situacao
+
+    # PDF novo: (a) não tinha antes, ou (b) é Devedor (juros muda todo dia)
+    pdf_novo = dados.get("pdf") and (existente.pdf is None or eh_devedor)
 
     if situacao_mudou or pdf_novo:
         for campo in ("situacao", "principal", "multa", "juros", "total",
@@ -55,10 +58,10 @@ def upsert_registro(db: Session, dados: dict) -> tuple[models.DASRegistro, bool,
 
         if virou_liquidado:
             # mês foi pago — apaga o PDF do banco
-            existente.pdf          = None
+            existente.pdf           = None
             existente.pdf_gerado_em = None
         elif dados.get("pdf"):
-            existente.pdf          = dados["pdf"]
+            existente.pdf           = dados["pdf"]
             existente.pdf_gerado_em = _agora()
 
         existente.atualizado_em = _agora()
