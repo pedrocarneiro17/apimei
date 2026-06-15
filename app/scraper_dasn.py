@@ -9,10 +9,10 @@ from datetime import datetime, timedelta
 
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
+from .browser_utils import BROWSER_PROFILE_DIR, HEADLESS, LAUNCH_ARGS, simular_humano, digitar_cnpj
 
-URL_DASN   = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao"
-HEADLESS   = os.getenv("HEADLESS", "false").lower() == "true"
-PAUSA_MS   = int(os.getenv("PAUSA_MS", "1500"))
+URL_DASN    = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao"
+PAUSA_MS    = int(os.getenv("PAUSA_MS", "1500"))
 DELAY_MAX_S = int(os.getenv("DELAY_MAX_S", "10"))
 
 
@@ -47,21 +47,23 @@ async def consultar_dasn(cnpj: str) -> dict:
     etapa = "inicializacao"
 
     async with Stealth().use_async(async_playwright()) as p:
-        browser = await p.chromium.launch(
-            channel="chrome",
-            headless=HEADLESS,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--window-size=1920,1080",
-            ],
-        )
-        context = await browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            accept_downloads=False,
-        )
+        if BROWSER_PROFILE_DIR:
+            # Perfil persistente — acumula cookies/histórico para parecer usuário recorrente
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=BROWSER_PROFILE_DIR + "_dasn",
+                channel="chrome",
+                headless=HEADLESS,
+                args=LAUNCH_ARGS,
+                viewport={"width": 1920, "height": 1080},
+                accept_downloads=False,
+            )
+        else:
+            browser = await p.chromium.launch(
+                channel="chrome", headless=HEADLESS, args=LAUNCH_ARGS
+            )
+            context = await browser.new_context(
+                viewport={"width": 1920, "height": 1080}, accept_downloads=False
+            )
         page = await context.new_page()
 
         try:
@@ -70,9 +72,10 @@ async def consultar_dasn(cnpj: str) -> dict:
             await page.goto(URL_DASN)
             await page.wait_for_timeout(PAUSA_MS)
 
+            # Comportamento humano antes de interagir com o formulário
+            await simular_humano(page)
             # IDs confirmados via inspeção: #identificacao-cnpj / #identificacao-continuar
-            await page.locator("#identificacao-cnpj").fill(cnpj)
-            await page.wait_for_timeout(800)
+            await digitar_cnpj(page, "#identificacao-cnpj", cnpj)
             await page.locator("#identificacao-continuar").click()
 
             # Aguarda saída da página de identificação (o POST redireciona para /Inicio ou similar)
@@ -190,6 +193,6 @@ async def consultar_dasn(cnpj: str) -> dict:
                 "timestamp": _agora().isoformat(),
             }
         finally:
-            await browser.close()
+            await context.close()
 
     return resultado

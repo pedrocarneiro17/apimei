@@ -7,11 +7,10 @@ import asyncio
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
+from .browser_utils import BROWSER_PROFILE_DIR, HEADLESS, LAUNCH_ARGS, simular_humano, digitar_cnpj
 
 URL_BASE      = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
-HEADLESS      = os.getenv("HEADLESS", "false").lower() == "true"
 PAUSA_MS      = int(os.getenv("PAUSA_MS", "1500"))
-# Delay aleatório máximo antes de abrir o browser (evita burst de requisições simultâneas)
 DELAY_MAX_S   = int(os.getenv("DELAY_MAX_S", "10"))
 
 
@@ -57,21 +56,22 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
     etapa   = "inicializacao"
 
     async with Stealth().use_async(async_playwright()) as p:
-        browser = await p.chromium.launch(
-            channel="chrome",
-            headless=HEADLESS,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--window-size=1920,1080",
-            ],
-        )
-        context = await browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            accept_downloads=True,
-        )
+        if BROWSER_PROFILE_DIR:
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=BROWSER_PROFILE_DIR + "_pgmei",
+                channel="chrome",
+                headless=HEADLESS,
+                args=LAUNCH_ARGS,
+                viewport={"width": 1920, "height": 1080},
+                accept_downloads=True,
+            )
+        else:
+            browser = await p.chromium.launch(
+                channel="chrome", headless=HEADLESS, args=LAUNCH_ARGS
+            )
+            context = await browser.new_context(
+                viewport={"width": 1920, "height": 1080}, accept_downloads=True
+            )
         page = await context.new_page()
 
         try:
@@ -79,8 +79,8 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             etapa = "login"
             await page.goto(f"{URL_BASE}/Identificacao")
             await page.wait_for_timeout(PAUSA_MS)
-            await page.locator('input[type="text"]').fill(cnpj)
-            await page.wait_for_timeout(800)
+            await simular_humano(page)
+            await digitar_cnpj(page, 'input[type="text"]', cnpj)
             await page.locator('button[type="submit"]').click()
 
             try:
@@ -171,7 +171,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
                 "etapa": etapa, "timestamp": _agora().isoformat(),
             }
         finally:
-            await browser.close()
+            await context.close()
 
     return resultado
 
