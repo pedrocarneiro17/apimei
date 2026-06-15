@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}PGMEI DAS – Painel{% endblock %}
+{% block title %}PGMEI – Painel{% endblock %}
 
 {% block content %}
 <div x-data="painel()" x-init="init()">
 
-  <!-- Modal de erro -->
+  <!-- Modal de erro DAS -->
   <div x-show="erroModal" x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 fade-in"
        @click.self="erroModal = null">
@@ -27,8 +27,12 @@
           <dd class="text-gray-800 mt-0.5" x-text="erroModal?.erro_etapa || '—'"></dd>
         </div>
         <div>
-          <dt class="text-xs font-semibold text-gray-500 uppercase">CNPJ / Ano</dt>
-          <dd class="text-gray-800 mt-0.5" x-text="formatarCNPJExibir(erroModal?.cnpj) + ' — ' + erroModal?.ano"></dd>
+          <dt class="text-xs font-semibold text-gray-500 uppercase">CNPJ</dt>
+          <dd class="text-gray-800 mt-0.5" x-text="formatarCNPJExibir(erroModal?.cnpj)"></dd>
+        </div>
+        <div x-show="erroModal?.ano">
+          <dt class="text-xs font-semibold text-gray-500 uppercase">Ano</dt>
+          <dd class="text-gray-800 mt-0.5" x-text="erroModal?.ano"></dd>
         </div>
         <div>
           <dt class="text-xs font-semibold text-gray-500 uppercase">Iniciado em</dt>
@@ -44,265 +48,437 @@
     </div>
   </div>
 
-  <!-- Título -->
-  <div class="mb-8">
-    <h1 class="text-2xl font-bold text-gray-800">Emissão de Guias DAS</h1>
-    <p class="text-gray-500 text-sm mt-1">Informe o CNPJ e o ano-calendário para consultar e gerar os DAS do MEI.</p>
+  <!-- Abas -->
+  <div class="mb-6 border-b border-gray-200">
+    <nav class="flex gap-1">
+      <button @click="aba = 'das'"
+              :class="aba === 'das'
+                ? 'border-b-2 border-brand-600 text-brand-700 font-semibold'
+                : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-3 text-sm transition">
+        Emissão de Guias DAS
+      </button>
+      <button @click="aba = 'dasn'"
+              :class="aba === 'dasn'
+                ? 'border-b-2 border-brand-600 text-brand-700 font-semibold'
+                : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-3 text-sm transition">
+        DASN SIMEI
+      </button>
+    </nav>
   </div>
 
-  <!-- Formulário -->
-  <div class="bg-white rounded-2xl shadow-sm border p-6 mb-8">
-    <div class="flex flex-col sm:flex-row gap-4 items-end">
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!--  ABA DAS                                              -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div x-show="aba === 'das'" x-cloak>
 
-      <!-- CNPJ -->
-      <div class="flex-1">
-        <label class="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
-        <input
-          type="text" maxlength="18"
-          x-model="cnpj"
-          @input="cnpj = formatarCNPJ($event.target.value)"
-          placeholder="00.000.000/0000-00"
-          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
-          :disabled="loading"
-        />
-      </div>
-
-      <!-- Ano -->
-      <div class="w-32">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Ano</label>
-        <select
-          x-model="ano"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-          :disabled="loading"
-        >
-          <template x-for="a in anos" :key="a">
-            <option :value="a" x-text="a"></option>
-          </template>
-        </select>
-      </div>
-
-      <!-- Botão -->
-      <div>
-        <button
-          @click="processar()"
-          :disabled="loading || cnpj.replace(/\D/g,'').length !== 14"
-          class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-lg transition text-sm"
-        >
-          <template x-if="!loading">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"/>
-            </svg>
-          </template>
-          <template x-if="loading">
-            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-          </template>
-          <span x-text="loading ? 'Processando…' : 'Gerar DAS'"></span>
-        </button>
-      </div>
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-800">Emissão de Guias DAS</h1>
+      <p class="text-gray-500 text-sm mt-1">Informe o CNPJ e o ano-calendário para consultar e gerar os DAS do MEI.</p>
     </div>
 
-    <!-- Progresso -->
-    <div x-show="loading" x-cloak class="mt-4 flex items-center gap-3 text-sm text-gray-500 fade-in">
-      <div class="w-full bg-gray-100 rounded-full h-1.5">
-        <div class="bg-brand-500 h-1.5 rounded-full animate-pulse" style="width:70%"></div>
-      </div>
-      <span class="whitespace-nowrap">Aguarde…</span>
-    </div>
-  </div>
-
-  <!-- Erro -->
-  <div x-show="erro" x-cloak class="bg-red-50 border border-red-200 rounded-2xl p-5 mb-8 fade-in">
-    <div class="flex items-start gap-3">
-      <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-        <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-      </svg>
-      <div>
-        <p class="font-semibold text-red-700" x-text="erro?.tipo || 'Erro'"></p>
-        <p class="text-red-600 text-sm mt-0.5" x-text="erro?.mensagem"></p>
-        <p class="text-red-400 text-xs mt-1">Etapa: <span x-text="erro?.etapa"></span></p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Resultado -->
-  <div x-show="resultado" x-cloak class="fade-in">
-
-    <!-- Cards resumo -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white rounded-xl border p-4 text-center shadow-sm">
-        <div class="text-2xl font-bold text-gray-800" x-text="resultado?.resumo?.total_meses ?? 0"></div>
-        <div class="text-xs text-gray-500 mt-1">Total de meses</div>
-      </div>
-      <div class="bg-green-50 rounded-xl border border-green-100 p-4 text-center shadow-sm">
-        <div class="text-2xl font-bold text-green-700" x-text="resultado?.resumo?.liquidados ?? 0"></div>
-        <div class="text-xs text-green-600 mt-1">Liquidados</div>
-      </div>
-      <div class="bg-red-50 rounded-xl border border-red-100 p-4 text-center shadow-sm">
-        <div class="text-2xl font-bold text-red-700" x-text="resultado?.resumo?.devedores ?? 0"></div>
-        <div class="text-xs text-red-600 mt-1">Devedores</div>
-      </div>
-      <div class="bg-amber-50 rounded-xl border border-amber-100 p-4 text-center shadow-sm">
-        <div class="text-2xl font-bold text-amber-700" x-text="resultado?.resumo?.a_vencer ?? 0"></div>
-        <div class="text-xs text-amber-600 mt-1">A Vencer</div>
-      </div>
-    </div>
-
-    <!-- Info do MEI -->
-    <div class="bg-white rounded-2xl border shadow-sm mb-6 overflow-hidden">
-      <div class="bg-brand-700 px-6 py-3 flex items-center justify-between">
-        <div class="text-white">
-          <span class="font-semibold" x-text="resultado?.nome || 'MEI'"></span>
-          <span class="text-brand-200 text-sm ml-3" x-text="'CNPJ: ' + formatarCNPJExibir(resultado?.cnpj)"></span>
+    <!-- Formulário DAS -->
+    <div class="bg-white rounded-2xl shadow-sm border p-6 mb-8">
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
+          <input type="text" maxlength="18"
+            x-model="cnpj"
+            @input="cnpj = formatarCNPJ($event.target.value)"
+            placeholder="00.000.000/0000-00"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+            :disabled="loading" />
         </div>
-        <span class="text-brand-200 text-sm" x-text="'Ano: ' + resultado?.ano"></span>
-      </div>
-
-      <!-- Tabela de meses -->
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
-            <tr>
-              <th class="px-4 py-3 text-left">Período</th>
-              <th class="px-4 py-3 text-left">Situação</th>
-              <th class="px-4 py-3 text-right">Principal</th>
-              <th class="px-4 py-3 text-right">Multa</th>
-              <th class="px-4 py-3 text-right">Total</th>
-              <th class="px-4 py-3 text-left">Vencimento</th>
-              <th class="px-4 py-3 text-center">PDF</th>
-              <th class="px-4 py-3 text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <template x-for="mes in resultado.meses" :key="mes.mes">
-              <tr :class="rowClass(mes.situacao)" class="hover:bg-opacity-80 transition">
-                <td class="px-4 py-3 font-medium" x-text="mes.periodo"></td>
-                <td class="px-4 py-3">
-                  <span :class="badgeClass(mes.situacao)"
-                        class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                        x-text="mes.situacao"></span>
-                </td>
-                <td class="px-4 py-3 text-right text-gray-600" x-text="formatBRL(mes.principal)"></td>
-                <td class="px-4 py-3 text-right text-gray-600" x-text="formatBRL(mes.multa)"></td>
-                <td class="px-4 py-3 text-right font-semibold" x-text="formatBRL(mes.total)"></td>
-                <td class="px-4 py-3 text-gray-600" x-text="formatData(mes.data_vencimento)"></td>
-                <td class="px-4 py-3 text-center">
-                  <template x-if="mes.pdf_disponivel">
-                    <a :href="mes.pdf_url" target="_blank"
-                       class="inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1 rounded-lg transition">
-                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                      </svg>
-                      PDF
-                    </a>
-                  </template>
-                  <template x-if="!mes.pdf_disponivel && mes.pdf_erro">
-                    <span class="text-red-400 text-xs" title="Erro ao gerar PDF">⚠ erro</span>
-                  </template>
-                  <template x-if="!mes.pdf_disponivel && !mes.pdf_erro">
-                    <span class="text-gray-300 text-xs">—</span>
-                  </template>
-                </td>
-                <td class="px-4 py-3 text-center text-xs">
-                  <template x-if="mes.novo_registro">
-                    <span class="text-brand-600 font-medium">novo</span>
-                  </template>
-                  <template x-if="mes.atualizado">
-                    <span class="text-blue-500 font-medium">atualizado</span>
-                  </template>
-                  <template x-if="!mes.novo_registro && !mes.atualizado">
-                    <span class="text-gray-300">—</span>
-                  </template>
-                </td>
-              </tr>
+        <div class="w-32">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Ano</label>
+          <select x-model="ano"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+            :disabled="loading">
+            <template x-for="a in anos" :key="a">
+              <option :value="a" x-text="a"></option>
             </template>
-          </tbody>
-        </table>
+          </select>
+        </div>
+        <div>
+          <button @click="processar()"
+            :disabled="loading || cnpj.replace(/\D/g,'').length !== 14"
+            class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-lg transition text-sm">
+            <template x-if="!loading">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"/>
+              </svg>
+            </template>
+            <template x-if="loading">
+              <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+            </template>
+            <span x-text="loading ? 'Processando…' : 'Gerar DAS'"></span>
+          </button>
+        </div>
+      </div>
+      <div x-show="loading" x-cloak class="mt-4 flex items-center gap-3 text-sm text-gray-500 fade-in">
+        <div class="w-full bg-gray-100 rounded-full h-1.5">
+          <div class="bg-brand-500 h-1.5 rounded-full animate-pulse" style="width:70%"></div>
+        </div>
+        <span class="whitespace-nowrap">Aguarde…</span>
+      </div>
+    </div>
+
+    <!-- Erro DAS -->
+    <div x-show="erro" x-cloak class="bg-red-50 border border-red-200 rounded-2xl p-5 mb-8 fade-in">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <p class="font-semibold text-red-700" x-text="erro?.tipo || 'Erro'"></p>
+          <p class="text-red-600 text-sm mt-0.5" x-text="erro?.mensagem"></p>
+          <p class="text-red-400 text-xs mt-1">Etapa: <span x-text="erro?.etapa"></span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultado DAS -->
+    <div x-show="resultado" x-cloak class="fade-in">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl border p-4 text-center shadow-sm">
+          <div class="text-2xl font-bold text-gray-800" x-text="resultado?.resumo?.total_meses ?? 0"></div>
+          <div class="text-xs text-gray-500 mt-1">Total de meses</div>
+        </div>
+        <div class="bg-green-50 rounded-xl border border-green-100 p-4 text-center shadow-sm">
+          <div class="text-2xl font-bold text-green-700" x-text="resultado?.resumo?.liquidados ?? 0"></div>
+          <div class="text-xs text-green-600 mt-1">Liquidados</div>
+        </div>
+        <div class="bg-red-50 rounded-xl border border-red-100 p-4 text-center shadow-sm">
+          <div class="text-2xl font-bold text-red-700" x-text="resultado?.resumo?.devedores ?? 0"></div>
+          <div class="text-xs text-red-600 mt-1">Devedores</div>
+        </div>
+        <div class="bg-amber-50 rounded-xl border border-amber-100 p-4 text-center shadow-sm">
+          <div class="text-2xl font-bold text-amber-700" x-text="resultado?.resumo?.a_vencer ?? 0"></div>
+          <div class="text-xs text-amber-600 mt-1">A Vencer</div>
+        </div>
       </div>
 
-      <!-- Footer da tabela -->
-      <div class="px-6 py-3 bg-gray-50 border-t flex items-center justify-between text-xs text-gray-400">
-        <span>
-          <span x-text="resultado?.resumo?.pdfs_gerados"></span> PDFs gerados ·
-          <span x-text="resultado?.resumo?.novos_registros"></span> novos ·
-          <span x-text="resultado?.resumo?.atualizados"></span> atualizados ·
-          <span x-text="resultado?.resumo?.duplicados"></span> sem alteração
-        </span>
-        <span>Processado em <span x-text="resultado?.duracao_segundos?.toFixed(1)"></span>s</span>
+      <div class="bg-white rounded-2xl border shadow-sm mb-6 overflow-hidden">
+        <div class="bg-brand-700 px-6 py-3 flex items-center justify-between">
+          <div class="text-white">
+            <span class="font-semibold" x-text="resultado?.nome || 'MEI'"></span>
+            <span class="text-brand-200 text-sm ml-3" x-text="'CNPJ: ' + formatarCNPJExibir(resultado?.cnpj)"></span>
+          </div>
+          <span class="text-brand-200 text-sm" x-text="'Ano: ' + resultado?.ano"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+              <tr>
+                <th class="px-4 py-3 text-left">Período</th>
+                <th class="px-4 py-3 text-left">Situação</th>
+                <th class="px-4 py-3 text-right">Principal</th>
+                <th class="px-4 py-3 text-right">Multa</th>
+                <th class="px-4 py-3 text-right">Total</th>
+                <th class="px-4 py-3 text-left">Vencimento</th>
+                <th class="px-4 py-3 text-center">PDF</th>
+                <th class="px-4 py-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <template x-for="mes in resultado.meses" :key="mes.mes">
+                <tr :class="rowClass(mes.situacao)" class="hover:bg-opacity-80 transition">
+                  <td class="px-4 py-3 font-medium" x-text="mes.periodo"></td>
+                  <td class="px-4 py-3">
+                    <span :class="badgeClass(mes.situacao)"
+                          class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                          x-text="mes.situacao"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right text-gray-600" x-text="formatBRL(mes.principal)"></td>
+                  <td class="px-4 py-3 text-right text-gray-600" x-text="formatBRL(mes.multa)"></td>
+                  <td class="px-4 py-3 text-right font-semibold" x-text="formatBRL(mes.total)"></td>
+                  <td class="px-4 py-3 text-gray-600" x-text="formatData(mes.data_vencimento)"></td>
+                  <td class="px-4 py-3 text-center">
+                    <template x-if="mes.pdf_disponivel">
+                      <a :href="mes.pdf_url" target="_blank"
+                         class="inline-flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1 rounded-lg transition">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                        PDF
+                      </a>
+                    </template>
+                    <template x-if="!mes.pdf_disponivel && mes.pdf_erro">
+                      <span class="text-red-400 text-xs" title="Erro ao gerar PDF">⚠ erro</span>
+                    </template>
+                    <template x-if="!mes.pdf_disponivel && !mes.pdf_erro">
+                      <span class="text-gray-300 text-xs">—</span>
+                    </template>
+                  </td>
+                  <td class="px-4 py-3 text-center text-xs">
+                    <template x-if="mes.novo_registro">
+                      <span class="text-brand-600 font-medium">novo</span>
+                    </template>
+                    <template x-if="mes.atualizado">
+                      <span class="text-blue-500 font-medium">atualizado</span>
+                    </template>
+                    <template x-if="!mes.novo_registro && !mes.atualizado">
+                      <span class="text-gray-300">—</span>
+                    </template>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-6 py-3 bg-gray-50 border-t flex items-center justify-between text-xs text-gray-400">
+          <span>
+            <span x-text="resultado?.resumo?.pdfs_gerados"></span> PDFs gerados ·
+            <span x-text="resultado?.resumo?.novos_registros"></span> novos ·
+            <span x-text="resultado?.resumo?.atualizados"></span> atualizados ·
+            <span x-text="resultado?.resumo?.duplicados"></span> sem alteração
+          </span>
+          <span>Processado em <span x-text="resultado?.duracao_segundos?.toFixed(1)"></span>s</span>
+        </div>
       </div>
+    </div>
+
+    <!-- Histórico DAS -->
+    <div class="bg-white rounded-2xl border shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h2 class="font-semibold text-gray-700">Histórico de Processamentos</h2>
+        <button @click="carregarHistorico()" class="text-xs text-brand-600 hover:underline">Atualizar</button>
+      </div>
+      <template x-if="historico.length === 0">
+        <div class="px-6 py-8 text-center text-gray-400 text-sm">Nenhum processamento realizado ainda.</div>
+      </template>
+      <template x-if="historico.length > 0">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                <th class="px-4 py-3 text-left">CNPJ</th>
+                <th class="px-4 py-3 text-left">Nome</th>
+                <th class="px-4 py-3 text-left">Ano</th>
+                <th class="px-4 py-3 text-left">Status</th>
+                <th class="px-4 py-3 text-left">Processado em</th>
+                <th class="px-4 py-3 text-left">Duração</th>
+                <th class="px-4 py-3 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <template x-for="job in historico" :key="job.job_id">
+                <tr class="hover:bg-gray-50">
+                  <td class="px-4 py-3 font-mono text-xs" x-text="formatarCNPJExibir(job.cnpj)"></td>
+                  <td class="px-4 py-3 text-gray-600 truncate max-w-[180px]" x-text="job.nome || '—'"></td>
+                  <td class="px-4 py-3" x-text="job.ano"></td>
+                  <td class="px-4 py-3">
+                    <span :class="statusBadge(job.status)"
+                          class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          x-text="job.status"></span>
+                  </td>
+                  <td class="px-4 py-3 text-gray-500 text-xs" x-text="formatDateTime(job.iniciado_em)"></td>
+                  <td class="px-4 py-3 text-gray-500 text-xs"
+                      x-text="job.duracao_segundos ? job.duracao_segundos.toFixed(1) + 's' : '—'"></td>
+                  <td class="px-4 py-3 text-center">
+                    <div class="flex items-center justify-center gap-3">
+                      <template x-if="job.status === 'erro'">
+                        <button @click="erroModal = job"
+                                class="text-red-500 hover:underline text-xs font-medium">Ver erro</button>
+                      </template>
+                      <template x-if="job.status !== 'erro'">
+                        <a :href="`/detalhes/${job.cnpj}/${job.ano}`"
+                           class="text-brand-600 hover:underline text-xs">Ver</a>
+                      </template>
+                      <button @click="apagar(job.job_id)"
+                              class="text-gray-300 hover:text-red-400 transition text-xs"
+                              title="Apagar log">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
     </div>
   </div>
 
-  <!-- Histórico de Jobs -->
-  <div class="bg-white rounded-2xl border shadow-sm overflow-hidden">
-    <div class="px-6 py-4 border-b flex items-center justify-between">
-      <h2 class="font-semibold text-gray-700">Histórico de Processamentos</h2>
-      <button @click="carregarHistorico()" class="text-xs text-brand-600 hover:underline">Atualizar</button>
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!--  ABA DASN SIMEI                                       -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div x-show="aba === 'dasn'" x-cloak>
+
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-800">DASN SIMEI</h1>
+      <p class="text-gray-500 text-sm mt-1">Consulta a situação das declarações anuais do MEI na Receita Federal.</p>
     </div>
 
-    <template x-if="historico.length === 0">
-      <div class="px-6 py-8 text-center text-gray-400 text-sm">Nenhum processamento realizado ainda.</div>
-    </template>
-
-    <template x-if="historico.length > 0">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th class="px-4 py-3 text-left">CNPJ</th>
-              <th class="px-4 py-3 text-left">Nome</th>
-              <th class="px-4 py-3 text-left">Ano</th>
-              <th class="px-4 py-3 text-left">Status</th>
-              <th class="px-4 py-3 text-left">Processado em</th>
-              <th class="px-4 py-3 text-left">Duração</th>
-              <th class="px-4 py-3 text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <template x-for="job in historico" :key="job.job_id">
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 font-mono text-xs" x-text="formatarCNPJExibir(job.cnpj)"></td>
-                <td class="px-4 py-3 text-gray-600 truncate max-w-[180px]" x-text="job.nome || '—'"></td>
-                <td class="px-4 py-3" x-text="job.ano"></td>
-                <td class="px-4 py-3">
-                  <span :class="statusBadge(job.status)"
-                        class="px-2 py-0.5 rounded-full text-xs font-semibold"
-                        x-text="job.status"></span>
-                </td>
-                <td class="px-4 py-3 text-gray-500 text-xs" x-text="formatDateTime(job.iniciado_em)"></td>
-                <td class="px-4 py-3 text-gray-500 text-xs"
-                    x-text="job.duracao_segundos ? job.duracao_segundos.toFixed(1) + 's' : '—'"></td>
-                <td class="px-4 py-3 text-center">
-                  <div class="flex items-center justify-center gap-3">
-                    <template x-if="job.status === 'erro'">
-                      <button @click="erroModal = job"
-                              class="text-red-500 hover:underline text-xs font-medium">Ver erro</button>
-                    </template>
-                    <template x-if="job.status !== 'erro'">
-                      <a :href="`/detalhes/${job.cnpj}/${job.ano}`"
-                         class="text-brand-600 hover:underline text-xs">Ver</a>
-                    </template>
-                    <button @click="apagar(job.job_id)"
-                            class="text-gray-300 hover:text-red-400 transition text-xs"
-                            title="Apagar log">✕</button>
-                  </div>
-                </td>
-              </tr>
+    <!-- Formulário DASN -->
+    <div class="bg-white rounded-2xl shadow-sm border p-6 mb-8">
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
+          <input type="text" maxlength="18"
+            x-model="dasnCnpj"
+            @input="dasnCnpj = formatarCNPJ($event.target.value)"
+            placeholder="00.000.000/0000-00"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
+            :disabled="dasnLoading" />
+        </div>
+        <div>
+          <button @click="consultarDasn()"
+            :disabled="dasnLoading || dasnCnpj.replace(/\D/g,'').length !== 14"
+            class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-lg transition text-sm">
+            <template x-if="!dasnLoading">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
             </template>
-          </tbody>
-        </table>
+            <template x-if="dasnLoading">
+              <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+            </template>
+            <span x-text="dasnLoading ? 'Consultando…' : 'Consultar'"></span>
+          </button>
+        </div>
       </div>
-    </template>
-  </div>
+      <div x-show="dasnLoading" x-cloak class="mt-4 flex items-center gap-3 text-sm text-gray-500 fade-in">
+        <div class="w-full bg-gray-100 rounded-full h-1.5">
+          <div class="bg-brand-500 h-1.5 rounded-full animate-pulse" style="width:70%"></div>
+        </div>
+        <span class="whitespace-nowrap">Aguarde…</span>
+      </div>
+    </div>
 
-</div>
+    <!-- Erro DASN -->
+    <div x-show="dasnErro" x-cloak class="bg-red-50 border border-red-200 rounded-2xl p-5 mb-8 fade-in">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <p class="font-semibold text-red-700" x-text="dasnErro?.tipo || 'Erro'"></p>
+          <p class="text-red-600 text-sm mt-0.5" x-text="dasnErro?.mensagem"></p>
+          <p class="text-red-400 text-xs mt-1">Etapa: <span x-text="dasnErro?.etapa"></span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultado DASN -->
+    <div x-show="dasnResultado" x-cloak class="mb-8 fade-in">
+      <div class="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <div class="bg-brand-700 px-6 py-3 flex items-center justify-between">
+          <span class="text-white font-semibold" x-text="'CNPJ: ' + formatarCNPJExibir(dasnResultado?.cnpj)"></span>
+          <span class="text-brand-200 text-sm"
+                x-text="'Consultado em ' + formatDateTime(dasnResultado?.consultado_em)"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+              <tr>
+                <th class="px-6 py-3 text-left">Ano Calendário</th>
+                <th class="px-6 py-3 text-left">Situação</th>
+                <th class="px-6 py-3 text-left">Data de Apresentação</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <template x-for="a in dasnResultado.anos" :key="a.ano">
+                <tr class="hover:bg-gray-50 transition">
+                  <td class="px-6 py-3 font-semibold text-gray-800" x-text="a.ano"></td>
+                  <td class="px-6 py-3">
+                    <span :class="a.status === 'Apresentada'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-amber-100 text-amber-700'"
+                          class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                          x-text="a.status"></span>
+                  </td>
+                  <td class="px-6 py-3 text-gray-600" x-text="a.data_apresentacao || '—'"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-6 py-3 bg-gray-50 border-t text-xs text-gray-400 text-right">
+          Consultado em <span x-text="dasnResultado?.duracao_segundos?.toFixed(1)"></span>s
+        </div>
+      </div>
+    </div>
+
+    <!-- Histórico DASN -->
+    <div class="bg-white rounded-2xl border shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h2 class="font-semibold text-gray-700">Histórico de Consultas DASN</h2>
+        <button @click="carregarHistoricoDasn()" class="text-xs text-brand-600 hover:underline">Atualizar</button>
+      </div>
+      <template x-if="dasnHistorico.length === 0">
+        <div class="px-6 py-8 text-center text-gray-400 text-sm">Nenhuma consulta realizada ainda.</div>
+      </template>
+      <template x-if="dasnHistorico.length > 0">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                <th class="px-4 py-3 text-left">CNPJ</th>
+                <th class="px-4 py-3 text-left">Status</th>
+                <th class="px-4 py-3 text-left">Anos encontrados</th>
+                <th class="px-4 py-3 text-left">Consultado em</th>
+                <th class="px-4 py-3 text-left">Duração</th>
+                <th class="px-4 py-3 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <template x-for="job in dasnHistorico" :key="job.job_id">
+                <tr class="hover:bg-gray-50">
+                  <td class="px-4 py-3 font-mono text-xs" x-text="formatarCNPJExibir(job.cnpj)"></td>
+                  <td class="px-4 py-3">
+                    <span :class="statusBadge(job.status)"
+                          class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          x-text="job.status"></span>
+                  </td>
+                  <td class="px-4 py-3 text-gray-600 text-xs"
+                      x-text="job.anos ? job.anos.length + ' anos' : '—'"></td>
+                  <td class="px-4 py-3 text-gray-500 text-xs" x-text="formatDateTime(job.iniciado_em)"></td>
+                  <td class="px-4 py-3 text-gray-500 text-xs"
+                      x-text="job.duracao_segundos ? job.duracao_segundos.toFixed(1) + 's' : '—'"></td>
+                  <td class="px-4 py-3 text-center">
+                    <div class="flex items-center justify-center gap-3">
+                      <template x-if="job.status === 'erro'">
+                        <button @click="erroModal = job"
+                                class="text-red-500 hover:underline text-xs font-medium">Ver erro</button>
+                      </template>
+                      <template x-if="job.status === 'concluido'">
+                        <button @click="verDetalhesDasn(job)"
+                                class="text-brand-600 hover:underline text-xs">Ver</button>
+                      </template>
+                      <button @click="apagarDasn(job.job_id)"
+                              class="text-gray-300 hover:text-red-400 transition text-xs"
+                              title="Apagar log">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </div>
+
+  </div><!-- /aba dasn -->
+
+</div><!-- /x-data -->
 
 <script>
 function painel() {
   return {
+    // ── Estado geral ──
+    aba: 'das',
+    erroModal: null,
+
+    // ── DAS ──
     cnpj: '',
     ano: new Date().getFullYear().toString(),
     anos: Array.from({length: 8}, (_, i) => (new Date().getFullYear() - i).toString()),
@@ -310,14 +486,24 @@ function painel() {
     erro: null,
     resultado: null,
     historico: [],
-    erroModal: null,
+
+    // ── DASN ──
+    dasnCnpj: '',
+    dasnLoading: false,
+    dasnErro: null,
+    dasnResultado: null,
+    dasnHistorico: [],
 
     init() {
       this.carregarHistorico();
-      // Atualiza o histórico automaticamente a cada 10s
-      setInterval(() => this.carregarHistorico(), 10000);
+      this.carregarHistoricoDasn();
+      setInterval(() => {
+        this.carregarHistorico();
+        this.carregarHistoricoDasn();
+      }, 10000);
     },
 
+    // ── Formatação ──
     formatarCNPJ(v) {
       const d = v.replace(/\D/g, '').slice(0, 14);
       if (d.length <= 2)  return d;
@@ -326,13 +512,26 @@ function painel() {
       if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
       return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
     },
-
     formatarCNPJExibir(c) {
       if (!c) return '';
       const d = c.replace(/\D/g,'');
       return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
     },
+    formatBRL(v) {
+      if (v == null) return '—';
+      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    },
+    formatData(d) {
+      if (!d) return '—';
+      const [y, m, day] = d.split('-');
+      return `${day}/${m}/${y}`;
+    },
+    formatDateTime(d) {
+      if (!d) return '—';
+      return new Date(d).toLocaleString('pt-BR');
+    },
 
+    // ── DAS ──
     async processar() {
       this.loading = true;
       this.erro    = null;
@@ -344,16 +543,13 @@ function painel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cnpj: cnpjLimpo, ano: this.ano }),
         });
-
         let data;
         const texto = await res.text();
-        try {
-          data = JSON.parse(texto);
-        } catch (_) {
+        try { data = JSON.parse(texto); }
+        catch (_) {
           this.erro = { tipo: 'Erro HTTP ' + res.status, mensagem: texto.slice(0, 200), etapa: 'servidor' };
           return;
         }
-
         if (!res.ok) {
           this.erro = { tipo: 'Erro HTTP ' + res.status, mensagem: data.detail || JSON.stringify(data), etapa: 'servidor' };
         } else if (!data.sucesso) {
@@ -384,38 +580,81 @@ function painel() {
       } catch (_) {}
     },
 
+    // ── DASN ──
+    async consultarDasn() {
+      this.dasnLoading  = true;
+      this.dasnErro     = null;
+      this.dasnResultado = null;
+      const cnpjLimpo = this.dasnCnpj.replace(/\D/g, '');
+      try {
+        const res = await fetch('/dasn/consultar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cnpj: cnpjLimpo }),
+        });
+        let data;
+        const texto = await res.text();
+        try { data = JSON.parse(texto); }
+        catch (_) {
+          this.dasnErro = { tipo: 'Erro HTTP ' + res.status, mensagem: texto.slice(0, 200), etapa: 'servidor' };
+          return;
+        }
+        if (!res.ok) {
+          this.dasnErro = { tipo: 'Erro HTTP ' + res.status, mensagem: data.detail || JSON.stringify(data), etapa: 'servidor' };
+        } else if (!data.sucesso) {
+          this.dasnErro = data.erro;
+        } else {
+          this.dasnResultado = data;
+          await this.carregarHistoricoDasn();
+        }
+      } catch (e) {
+        this.dasnErro = { tipo: 'Erro de conexão', mensagem: e.message, etapa: 'requisição' };
+      } finally {
+        this.dasnLoading = false;
+      }
+    },
+
+    async carregarHistoricoDasn() {
+      try {
+        const res = await fetch('/dasn/jobs/lista');
+        if (res.ok) this.dasnHistorico = await res.json();
+      } catch (_) {}
+    },
+
+    async apagarDasn(jobId) {
+      if (!confirm('Apagar este log do histórico?')) return;
+      try {
+        const res = await fetch(`/dasn/jobs/${jobId}`, { method: 'DELETE' });
+        if (res.ok) this.dasnHistorico = this.dasnHistorico.filter(j => j.job_id !== jobId);
+      } catch (_) {}
+    },
+
+    verDetalhesDasn(job) {
+      // Exibe o resultado diretamente na tela
+      this.dasnResultado = {
+        cnpj: job.cnpj,
+        anos: job.anos || [],
+        consultado_em: job.finalizado_em,
+        duracao_segundos: job.duracao_segundos,
+      };
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    // ── Badges ──
     badgeClass(s) {
       if (s?.includes('Liquidado')) return 'bg-green-100 text-green-700';
       if (s?.includes('Devedor'))   return 'bg-red-100 text-red-700';
       return 'bg-amber-100 text-amber-700';
     },
-
     rowClass(s) {
       if (s?.includes('Devedor')) return 'bg-red-50';
       return '';
     },
-
     statusBadge(s) {
-      if (s === 'concluido')    return 'bg-green-100 text-green-700';
-      if (s === 'erro')         return 'bg-red-100 text-red-700';
-      if (s === 'processando')  return 'bg-blue-100 text-blue-700';
+      if (s === 'concluido')   return 'bg-green-100 text-green-700';
+      if (s === 'erro')        return 'bg-red-100 text-red-700';
+      if (s === 'processando') return 'bg-blue-100 text-blue-700';
       return 'bg-gray-100 text-gray-600';
-    },
-
-    formatBRL(v) {
-      if (v == null) return '—';
-      return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    },
-
-    formatData(d) {
-      if (!d) return '—';
-      const [y, m, day] = d.split('-');
-      return `${day}/${m}/${y}`;
-    },
-
-    formatDateTime(d) {
-      if (!d) return '—';
-      return new Date(d).toLocaleString('pt-BR');
     },
   }
 }
