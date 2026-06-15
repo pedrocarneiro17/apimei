@@ -136,3 +136,44 @@ def deletar_job(db: Session, job_id: str) -> bool:
     db.delete(job)
     db.commit()
     return True
+
+
+# ── DASNJob ──────────────────────────────────────────────────────────────────
+
+def criar_dasn_job(db: Session, job_id: str, cnpj: str) -> models.DASNJob:
+    job = models.DASNJob(id=job_id, cnpj=cnpj, status="processando")
+    db.add(job)
+    db.commit()
+    return job
+
+
+def finalizar_dasn_job_sucesso(db: Session, job: models.DASNJob,
+                                duracao: float, anos: list) -> models.DASNJob:
+    job.status           = "concluido"
+    job.finalizado_em    = _agora()
+    job.duracao_segundos = duracao
+    job.anos             = anos
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def finalizar_dasn_job_erro(db: Session, job: models.DASNJob,
+                             erro: dict) -> models.DASNJob:
+    job.status        = "erro"
+    job.finalizado_em = _agora()
+    job.erro_tipo     = erro.get("tipo")
+    job.erro_mensagem = erro.get("mensagem")
+    job.erro_etapa    = erro.get("etapa")
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def deletar_dasn_job(db: Session, job_id: str) -> bool:
+    job = db.query(models.DASNJob).filter_by(id=job_id).first()
+    if not job:
+        return False
+    db.delete(job)
+    db.commit()
+    return True

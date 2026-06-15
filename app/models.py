@@ -56,3 +56,19 @@ class DASJob(Base):
     erro_mensagem    = Column(Text, nullable=True)
     erro_etapa       = Column(String(50), nullable=True)
     payload_enviado  = Column(JSON, nullable=True)             # o que foi enviado
+
+
+class DASNJob(Base):
+    """Rastreia cada consulta DASN SIMEI (sucesso, erro, anos retornados)."""
+    __tablename__ = "dasn_jobs"
+
+    id               = Column(String(36), primary_key=True)   # UUID
+    cnpj             = Column(String(14), nullable=False, index=True)
+    status           = Column(String(20), nullable=False, default="processando")
+    iniciado_em      = Column(DateTime, default=_agora)
+    finalizado_em    = Column(DateTime, nullable=True)
+    duracao_segundos = Column(Numeric(8, 2), nullable=True)
+    anos             = Column(JSON, nullable=True)             # lista de {ano, status, data_apresentacao}
+    erro_tipo        = Column(String(100), nullable=True)
+    erro_mensagem    = Column(Text, nullable=True)
+    erro_etapa       = Column(String(50), nullable=True)

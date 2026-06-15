@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from .database import engine
 from .models import Base
-from .routers import das, health, pages
+from .routers import das, dasn, health, pages
 
 # ── Variáveis obrigatórias ───────────────────────────────────────────────────
 
@@ -91,4 +91,5 @@ async def security_headers(request: Request, call_next):
 
 app.include_router(pages.router)
 app.include_router(das.router)
+app.include_router(dasn.router)
 app.include_router(health.router)

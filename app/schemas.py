@@ -100,3 +100,32 @@ class MesListaResponse(BaseModel):
     cnpj:  str
     ano:   str
     meses: List[MesStatus]
+
+
+# ── DASN SIMEI ───────────────────────────────────────────────────────────────
+
+class ConsultarDASNRequest(BaseModel):
+    cnpj: str = Field(..., description="CNPJ sem formatação — 14 dígitos")
+
+    @field_validator("cnpj")
+    @classmethod
+    def cnpj_apenas_numeros(cls, v: str) -> str:
+        digits = "".join(c for c in v if c.isdigit())
+        if len(digits) != 14:
+            raise ValueError("CNPJ deve conter 14 dígitos numéricos")
+        return digits
+
+
+class DASNAno(BaseModel):
+    ano:               str
+    status:            str            # Apresentada | Não Apresentada
+    data_apresentacao: Optional[str] = None
+
+
+class DASNResponse(BaseModel):
+    sucesso:           bool
+    cnpj:              str
+    anos:              List[DASNAno]       = []
+    consultado_em:     Optional[str]       = None
+    duracao_segundos:  Optional[float]     = None
+    erro:              Optional[ErroDetalhe] = None
