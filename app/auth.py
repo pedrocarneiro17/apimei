@@ -17,6 +17,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 LOGIN_USER = os.getenv("LOGIN_USER", "")
 LOGIN_PASS = os.getenv("LOGIN_PASS", "")
 API_KEY    = os.getenv("API_KEY", "")
+WORKER_KEY = os.getenv("WORKER_KEY", "")
 
 # ── Rate limiting em memória (login) ────────────────────────────────────────
 _tentativas: dict[str, list[datetime]] = defaultdict(list)
@@ -60,6 +61,16 @@ def _api_key_valida(request: Request) -> bool:
         return False
     chave_recebida = request.headers.get("X-API-Key", "")
     return secrets.compare_digest(chave_recebida.encode(), API_KEY.encode())
+
+
+def exige_worker_key(request: Request):
+    """Rotas do worker — valida X-Worker-Key."""
+    if not WORKER_KEY:
+        return JSONResponse(status_code=503, content={"detail": "WORKER_KEY não configurada no servidor."})
+    chave = request.headers.get("X-Worker-Key", "")
+    if not secrets.compare_digest(chave.encode(), WORKER_KEY.encode()):
+        return JSONResponse(status_code=401, content={"detail": "Worker key inválida."})
+    return None
 
 
 def exige_login_pagina(request: Request):

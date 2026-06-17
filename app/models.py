@@ -56,3 +56,4 @@ class DASJob(Base):
     erro_mensagem    = Column(Text, nullable=True)
     erro_etapa       = Column(String(50), nullable=True)
     payload_enviado  = Column(JSON, nullable=True)             # o que foi enviado
+    resultado        = Column(JSON, nullable=True)             # ProcessarResponse serializado

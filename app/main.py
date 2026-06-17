@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from .database import engine
 from .models import Base
-from .routers import das, health, pages
+from .routers import das, health, pages, worker
 
 # ── Variáveis obrigatórias ───────────────────────────────────────────────────
 
@@ -35,9 +35,21 @@ IS_PROD = os.getenv("RAILWAY_ENVIRONMENT") is not None   # Railway define essa v
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
 
+def _migrar_colunas():
+    from sqlalchemy import text, inspect
+    inspector = inspect(engine)
+    if "das_jobs" in inspector.get_table_names():
+        colunas = [c["name"] for c in inspector.get_columns("das_jobs")]
+        if "resultado" not in colunas:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE das_jobs ADD COLUMN resultado JSON"))
+                conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _migrar_colunas()
     yield
 
 
@@ -91,4 +103,5 @@ async def security_headers(request: Request, call_next):
 
 app.include_router(pages.router)
 app.include_router(das.router)
+app.include_router(worker.router)
 app.include_router(health.router)

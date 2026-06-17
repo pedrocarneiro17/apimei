@@ -90,14 +90,45 @@ def buscar_registro_mes(db: Session, cnpj: str, ano: str,
 # ── DASJob ───────────────────────────────────────────────────────────────────
 
 def criar_job(db: Session, job_id: str, cnpj: str, ano: str,
-              payload: dict) -> models.DASJob:
+              payload: dict, status: str = "processando") -> models.DASJob:
     job = models.DASJob(
         id=job_id, cnpj=cnpj, ano=ano,
-        status="processando",
+        status=status,
         payload_enviado=payload,
     )
     db.add(job)
     db.commit()
+    return job
+
+
+def buscar_proximo_pendente(db: Session) -> Optional[models.DASJob]:
+    job = (
+        db.query(models.DASJob)
+        .filter_by(status="pendente")
+        .order_by(models.DASJob.iniciado_em)
+        .first()
+    )
+    if not job:
+        return None
+    job.status = "processando"
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def finalizar_job_sucesso_com_resultado(
+    db: Session, job: models.DASJob,
+    nome: Optional[str], duracao: float,
+    resumo: dict, resultado: dict,
+) -> models.DASJob:
+    job.status           = "concluido"
+    job.nome             = nome
+    job.finalizado_em    = _agora()
+    job.duracao_segundos = duracao
+    job.resumo           = resumo
+    job.resultado        = resultado
+    db.commit()
+    db.refresh(job)
     return job
 
 

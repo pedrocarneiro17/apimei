@@ -1,3 +1,4 @@
+import os
 import sys
 import uuid
 import asyncio
@@ -5,8 +6,8 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 
 def _agora() -> str:
-    """Retorna ISO string no horário de Brasília (UTC-3)."""
     return (datetime.utcnow() - timedelta(hours=3)).isoformat()
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from ..schemas import (
 )
 from .. import crud, scraper
 
+WORKER_KEY = os.getenv("WORKER_KEY", "")
 _executor = ThreadPoolExecutor(max_workers=15)
 
 
@@ -50,25 +52,56 @@ async def processar_das(request: Request, req: ProcessarRequest, db: Session = D
     auth = exige_login_api(request)
     if auth:
         return auth
-    """
-    Executa o scraping do PGMEI para o CNPJ e ano informados.
-    - Retorna a situação de todos os meses.
-    - Gera PDF para meses **Devedor**, **mês atual** e **mês seguinte**.
-    - Controle de duplicados: registros já existentes sem mudança são ignorados.
-    - Erros detalhados com tipo, mensagem e etapa onde falhou.
-    """
-    job_id  = str(uuid.uuid4())
-    payload = {"cnpj": req.cnpj, "ano": req.ano}
-    job     = crud.criar_job(db, job_id=job_id, cnpj=req.cnpj, ano=req.ano, payload=payload)
-    agora   = _agora()
 
-    # Meses que já têm PDF A Vencer salvo → scraper não vai regenerar
-    # Devedor sempre regenera (juros muda todo dia)
+    job_id = str(uuid.uuid4())
+    agora  = _agora()
+
     registros_existentes = crud.buscar_registros(db, cnpj=req.cnpj, ano=req.ano)
     meses_com_pdf = {
         r.mes for r in registros_existentes
         if r.pdf is not None and "Devedor" not in (r.situacao or "")
     }
+
+    if WORKER_KEY:
+        # ── Modo worker: cria job pendente e aguarda PC local processar ──────
+        payload = {"cnpj": req.cnpj, "ano": req.ano, "meses_com_pdf": list(meses_com_pdf)}
+        crud.criar_job(db, job_id=job_id, cnpj=req.cnpj, ano=req.ano,
+                       payload=payload, status="pendente")
+
+        for _ in range(40):  # até 120s (40 × 3s)
+            await asyncio.sleep(3)
+            db.expire_all()
+            job = crud.buscar_job(db, job_id)
+            if not job:
+                break
+            if job.status == "concluido" and job.resultado:
+                return job.resultado
+            if job.status == "erro":
+                return ProcessarResponse(
+                    sucesso=False, job_id=job_id, cnpj=req.cnpj, ano=req.ano,
+                    processado_em=agora,
+                    erro=ErroDetalhe(
+                        tipo=job.erro_tipo or "Erro",
+                        mensagem=job.erro_mensagem or "",
+                        etapa=job.erro_etapa or "",
+                        timestamp=job.finalizado_em.isoformat() if job.finalizado_em else agora,
+                    ),
+                )
+
+        return ProcessarResponse(
+            sucesso=False, job_id=job_id, cnpj=req.cnpj, ano=req.ano,
+            processado_em=agora,
+            erro=ErroDetalhe(
+                tipo="Timeout",
+                mensagem="Worker não respondeu em 120s. Verifique se o worker está rodando no PC.",
+                etapa="aguardando_worker",
+                timestamp=_agora(),
+            ),
+        )
+
+    # ── Modo local: executa scraper diretamente (sem WORKER_KEY) ────────────
+    payload = {"cnpj": req.cnpj, "ano": req.ano}
+    job     = crud.criar_job(db, job_id=job_id, cnpj=req.cnpj, ano=req.ano, payload=payload)
 
     try:
         from functools import partial
@@ -79,10 +112,8 @@ async def processar_das(request: Request, req: ProcessarRequest, db: Session = D
         )
     except Exception as exc:
         erro = {
-            "tipo": type(exc).__name__,
-            "mensagem": str(exc),
-            "etapa": "scraper",
-            "timestamp": _agora(),
+            "tipo": type(exc).__name__, "mensagem": str(exc),
+            "etapa": "scraper", "timestamp": _agora(),
         }
         crud.finalizar_job_erro(db, job, erro)
         return ProcessarResponse(
@@ -93,12 +124,8 @@ async def processar_das(request: Request, req: ProcessarRequest, db: Session = D
     if not resultado["sucesso"]:
         crud.finalizar_job_erro(db, job, resultado["erro"])
         return ProcessarResponse(
-            sucesso=False,
-            job_id=job_id,
-            cnpj=req.cnpj,
-            ano=req.ano,
-            processado_em=agora,
-            erro=ErroDetalhe(**resultado["erro"]),
+            sucesso=False, job_id=job_id, cnpj=req.cnpj, ano=req.ano,
+            processado_em=agora, erro=ErroDetalhe(**resultado["erro"]),
         )
 
     meses_response: list[MesStatus] = []
