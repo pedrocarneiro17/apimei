@@ -99,7 +99,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             await page.wait_for_timeout(PAUSA_MS)
             await page.locator('input[type="text"]').fill(cnpj)
             await page.wait_for_timeout(800)
-            await _resolver_hcaptcha(page, HCAPTCHA_SITEKEY, f"{URL_BASE}/Identificacao")
+            await page.locator('button[type="submit"]').click()
 
             try:
                 await page.wait_for_url("**/Inicio", timeout=25000)
