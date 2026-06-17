@@ -4,23 +4,15 @@ Scraper PGMEI — automatiza a Receita Federal para coletar situação dos DAS.
 import os
 import random
 import asyncio
-import logging
-import httpx
-from urllib.parse import urlparse
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [SCRAPER] %(message)s")
-_log = logging.getLogger(__name__)
-
-URL_BASE         = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
-HEADLESS         = os.getenv("HEADLESS", "false").lower() == "true"
-PAUSA_MS         = int(os.getenv("PAUSA_MS", "1500"))
-DELAY_MAX_S      = int(os.getenv("DELAY_MAX_S", "10"))
-TWOCAPTCHA_KEY   = os.getenv("TWOCAPTCHA_KEY", "")
-HCAPTCHA_SITEKEY = "2c0f2c5b-d8b9-469a-98ec-56271c2f68e4"
-PROXY_URL        = os.getenv("PROXY_URL", "")  # ex: http://user:pass@IP:porta
+URL_BASE      = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
+HEADLESS      = os.getenv("HEADLESS", "false").lower() == "true"
+PAUSA_MS      = int(os.getenv("PAUSA_MS", "1500"))
+# Delay aleatório máximo antes de abrir o browser (evita burst de requisições simultâneas)
+DELAY_MAX_S   = int(os.getenv("DELAY_MAX_S", "10"))
 
 
 def _agora() -> datetime:
@@ -65,7 +57,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
     etapa   = "inicializacao"
 
     async with Stealth().use_async(async_playwright()) as p:
-        launch_kwargs = dict(
+        browser = await p.chromium.launch(
             channel="chrome",
             headless=HEADLESS,
             args=[
@@ -76,15 +68,6 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
                 "--window-size=1920,1080",
             ],
         )
-        if PROXY_URL:
-            _parsed = urlparse(PROXY_URL)
-            _proxy = {"server": f"{_parsed.scheme}://{_parsed.hostname}:{_parsed.port}"}
-            if _parsed.username:
-                _proxy["username"] = _parsed.username
-                _proxy["password"] = _parsed.password or ""
-            launch_kwargs["proxy"] = _proxy
-            _log.info("usando proxy: %s:%s", _parsed.hostname, _parsed.port)
-        browser = await p.chromium.launch(**launch_kwargs)
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
             accept_downloads=True,
@@ -94,7 +77,6 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
         try:
             # ── 1. Login ─────────────────────────────────────────────
             etapa = "login"
-            _log.info("cnpj=%s ano=%s etapa=login — navegando para Identificacao", cnpj, ano)
             await page.goto(f"{URL_BASE}/Identificacao")
             await page.wait_for_timeout(PAUSA_MS)
             await page.locator('input[type="text"]').fill(cnpj)
@@ -105,10 +87,6 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
                 await page.wait_for_url("**/Inicio", timeout=25000)
             except Exception:
                 html = await page.content()
-                url_atual = page.url
-                _log.warning("cnpj=%s etapa=login url=%s — falhou aguardando /Inicio", cnpj, url_atual)
-                await _salvar_screenshot(page, cnpj, "login")
-                _log.warning("html_trecho=%s", html[:500].replace("\n", " "))
                 if any(w in html.lower() for w in ["captcha", "robô", "robot"]):
                     raise ScraperError(
                         "CaptchaDetectado",
@@ -145,7 +123,6 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
 
             # ── 2. Navega para Emitir DAS ────────────────────────────
             etapa = "navegar_emissao"
-            _log.info("cnpj=%s etapa=navegar_emissao url=%s", cnpj, page.url)
             await page.wait_for_timeout(PAUSA_MS)
             await page.get_by_text("Emitir Guia de Pagamento (DAS)").click()
             await page.wait_for_url("**/emissao", timeout=15000)
@@ -184,14 +161,11 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             })
 
         except ScraperError as exc:
-            _log.error("cnpj=%s etapa=%s erro=%s: %s", cnpj, exc.etapa, exc.tipo, exc.mensagem)
             resultado["erro"] = {
                 "tipo": exc.tipo, "mensagem": exc.mensagem,
                 "etapa": exc.etapa, "timestamp": _agora().isoformat(),
             }
         except Exception as exc:
-            _log.error("cnpj=%s etapa=%s erro=%s: %s", cnpj, etapa, type(exc).__name__, exc)
-            await _salvar_screenshot(page, cnpj, etapa)
             resultado["erro"] = {
                 "tipo": type(exc).__name__, "mensagem": str(exc),
                 "etapa": etapa, "timestamp": _agora().isoformat(),
@@ -200,70 +174,6 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             await browser.close()
 
     return resultado
-
-
-# ── hCaptcha ─────────────────────────────────────────────────────────────────
-
-async def _resolver_hcaptcha(page: Page, sitekey: str, pageurl: str) -> None:
-    if not TWOCAPTCHA_KEY:
-        raise ScraperError(
-            "CaptchaConfig",
-            "hCaptcha detectado. Configure TWOCAPTCHA_KEY no ambiente.",
-            "login",
-        )
-
-    _log.info("hcaptcha: enviando tarefa para 2captcha...")
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post("https://2captcha.com/in.php", data={
-            "key":     TWOCAPTCHA_KEY,
-            "method":  "hcaptcha",
-            "sitekey": sitekey,
-            "pageurl": pageurl,
-        })
-        resp.raise_for_status()
-        if not resp.text.startswith("OK|"):
-            raise ScraperError("CaptchaAPI", f"2captcha recusou: {resp.text}", "login")
-        task_id = resp.text.split("|")[1]
-
-    _log.info("hcaptcha: aguardando resolução (task_id=%s)...", task_id)
-    token = None
-    async with httpx.AsyncClient(timeout=15) as client:
-        for _ in range(24):
-            await asyncio.sleep(5)
-            resp = await client.get("https://2captcha.com/res.php", params={
-                "key": TWOCAPTCHA_KEY, "action": "get", "id": task_id,
-            })
-            if resp.text == "CAPCHA_NOT_READY":
-                continue
-            if resp.text.startswith("OK|"):
-                token = resp.text.split("|")[1]
-                break
-            raise ScraperError("CaptchaAPI", f"2captcha erro: {resp.text}", "login")
-
-    if not token:
-        raise ScraperError("CaptchaTimeout", "2captcha não resolveu em 120s", "login")
-
-    _log.info("hcaptcha: token recebido, submetendo formulário...")
-    await page.evaluate(f"""
-        (() => {{
-            const ta = document.querySelector('textarea[name="h-captcha-response"]');
-            if (ta) ta.value = {repr(token)};
-            const form = document.querySelector('#identificacao');
-            if (form) form.submit();
-        }})();
-    """)
-
-
-# ── Debug ────────────────────────────────────────────────────────────────────
-
-async def _salvar_screenshot(page: Page, cnpj: str, etapa: str) -> None:
-    try:
-        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        path = f"/tmp/pgmei_{cnpj}_{etapa}_{ts}.png"
-        await page.screenshot(path=path, full_page=True)
-        _log.info("screenshot salvo: %s", path)
-    except Exception as e:
-        _log.warning("nao foi possivel salvar screenshot: %s", e)
 
 
 # ── Helpers internos ─────────────────────────────────────────────────────────
