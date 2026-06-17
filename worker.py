@@ -39,7 +39,7 @@ from app.scraper import processar_das
 
 API_URL    = os.getenv("WORKER_API_URL", "").rstrip("/")
 WORKER_KEY = os.getenv("WORKER_KEY", "")
-CONCURRENT = 5
+CONCURRENT = 10
 INTERVALO  = int(os.getenv("WORKER_POLL_INTERVAL", "5"))
 
 if not API_URL or not WORKER_KEY:
