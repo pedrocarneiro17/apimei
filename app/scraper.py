@@ -19,6 +19,7 @@ PAUSA_MS         = int(os.getenv("PAUSA_MS", "1500"))
 DELAY_MAX_S      = int(os.getenv("DELAY_MAX_S", "10"))
 TWOCAPTCHA_KEY   = os.getenv("TWOCAPTCHA_KEY", "")
 HCAPTCHA_SITEKEY = "2c0f2c5b-d8b9-469a-98ec-56271c2f68e4"
+PROXY_URL        = os.getenv("PROXY_URL", "")  # ex: http://user:pass@IP:porta
 
 
 def _agora() -> datetime:
@@ -63,7 +64,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
     etapa   = "inicializacao"
 
     async with Stealth().use_async(async_playwright()) as p:
-        browser = await p.chromium.launch(
+        launch_kwargs = dict(
             channel="chrome",
             headless=HEADLESS,
             args=[
@@ -74,6 +75,10 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
                 "--window-size=1920,1080",
             ],
         )
+        if PROXY_URL:
+            launch_kwargs["proxy"] = {"server": PROXY_URL}
+            _log.info("usando proxy: %s", PROXY_URL.split("@")[-1])
+        browser = await p.chromium.launch(**launch_kwargs)
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
             accept_downloads=True,
