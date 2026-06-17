@@ -112,7 +112,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
                 for seletor in seletores:
                     try:
                         loc = page.locator(seletor).first
-                        info = await loc.inner_text(timeout=3000)
+                        info = await loc.inner_text(timeout=500)
                         if "Nome:" in info:
                             resultado["nome"] = info.split("Nome:")[-1].split("\n")[0].strip()
                             break
