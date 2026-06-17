@@ -2,11 +2,10 @@
 Worker local — executa scraping com IP residencial e posta resultado na API.
 
 Configuração (.env ou variáveis de ambiente):
-  WORKER_API_URL   URL da API no Railway/Render, ex: https://apimei.up.railway.app
-  WORKER_KEY       Chave secreta (mesma configurada no servidor em WORKER_KEY)
-
-Uso:
-  python worker.py
+  WORKER_API_URL        URL da API no Railway/Render
+  WORKER_KEY            Chave secreta (mesma configurada no servidor)
+  WORKER_CONCURRENT     Jobs em paralelo (padrão: 5)
+  WORKER_POLL_INTERVAL  Segundos entre polls quando fila vazia (padrão: 5)
 """
 import os
 import sys
@@ -41,25 +40,31 @@ from app.scraper import processar_das
 
 API_URL    = os.getenv("WORKER_API_URL", "").rstrip("/")
 WORKER_KEY = os.getenv("WORKER_KEY", "")
+CONCURRENT = int(os.getenv("WORKER_CONCURRENT", "5"))
 INTERVALO  = int(os.getenv("WORKER_POLL_INTERVAL", "5"))
 
 if not API_URL or not WORKER_KEY:
     log.error("ERRO: defina WORKER_API_URL e WORKER_KEY no .env")
     sys.exit(1)
 
-log.info(f"API: {API_URL} | intervalo: {INTERVALO}s")
+log.info(f"API: {API_URL} | concorrência: {CONCURRENT} | intervalo: {INTERVALO}s")
 HEADERS = {"X-Worker-Key": WORKER_KEY}
 
 
-def buscar_proximo():
-    resp = requests.get(f"{API_URL}/worker/proximo", headers=HEADERS, timeout=10)
+def buscar_proximos() -> list[dict]:
+    resp = requests.get(
+        f"{API_URL}/worker/proximo",
+        headers=HEADERS,
+        params={"count": CONCURRENT},
+        timeout=10,
+    )
     if resp.status_code == 204:
-        return None
+        return []
     resp.raise_for_status()
     return resp.json()
 
 
-def enviar_resultado(job_id: str, resultado: dict):
+def enviar_resultado(job_id: str, resultado: dict) -> None:
     resp = requests.post(
         f"{API_URL}/worker/concluir/{job_id}",
         json={"resultado": resultado},
@@ -76,41 +81,50 @@ def serializar_pdfs(resultado: dict) -> dict:
     return resultado
 
 
-def main():
+async def processar_job(job: dict) -> None:
+    job_id        = job["job_id"]
+    cnpj          = job["cnpj"]
+    ano           = job["ano"]
+    meses_com_pdf = set(job.get("meses_com_pdf", []))
+
+    log.info(f"[{job_id[:8]}] Iniciando | CNPJ {cnpj} / {ano}")
+
+    try:
+        resultado = await processar_das(cnpj, ano, meses_com_pdf)
+        resultado = serializar_pdfs(resultado)
+    except Exception as exc:
+        resultado = {
+            "cnpj": cnpj, "ano": ano, "sucesso": False, "meses": [],
+            "erro": {
+                "tipo":     type(exc).__name__,
+                "mensagem": str(exc),
+                "etapa":    "scraper",
+            },
+        }
+
+    await asyncio.to_thread(enviar_resultado, job_id, resultado)
+    log.info(f"[{job_id[:8]}] Concluído | sucesso: {resultado.get('sucesso')}")
+
+
+async def _loop():
     log.info("Loop iniciado")
     while True:
         try:
-            job = buscar_proximo()
-            if not job:
-                time.sleep(INTERVALO)
+            jobs = await asyncio.to_thread(buscar_proximos)
+            if not jobs:
+                await asyncio.sleep(INTERVALO)
                 continue
 
-            job_id        = job["job_id"]
-            cnpj          = job["cnpj"]
-            ano           = job["ano"]
-            meses_com_pdf = set(job.get("meses_com_pdf", []))
-
-            log.info(f"Job {job_id} | CNPJ {cnpj} / {ano}")
-
-            try:
-                resultado = asyncio.run(processar_das(cnpj, ano, meses_com_pdf))
-                resultado = serializar_pdfs(resultado)
-            except Exception as exc:
-                resultado = {
-                    "cnpj": cnpj, "ano": ano, "sucesso": False, "meses": [],
-                    "erro": {
-                        "tipo":     type(exc).__name__,
-                        "mensagem": str(exc),
-                        "etapa":    "scraper",
-                    },
-                }
-
-            enviar_resultado(job_id, resultado)
-            log.info(f"Job {job_id} concluído | sucesso: {resultado.get('sucesso')}")
+            log.info(f"Processando {len(jobs)} job(s) em paralelo")
+            await asyncio.gather(*[processar_job(job) for job in jobs])
 
         except Exception as exc:
             log.error(f"Erro no loop: {exc}")
-            time.sleep(INTERVALO)
+            await asyncio.sleep(INTERVALO)
+
+
+def main():
+    asyncio.run(_loop())
 
 
 if __name__ == "__main__":

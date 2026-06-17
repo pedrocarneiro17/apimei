@@ -28,20 +28,23 @@ class WorkerResultado(BaseModel):
     resultado: dict[str, Any]
 
 
-@router.get("/proximo", summary="Próximo job pendente para o worker")
-def proximo_job(request: Request, db: Session = Depends(get_db)):
+@router.get("/proximo", summary="Próximos jobs pendentes para o worker")
+def proximo_job(request: Request, count: int = 1, db: Session = Depends(get_db)):
     auth = exige_worker_key(request)
     if auth:
         return auth
-    job = crud.buscar_proximo_pendente(db)
-    if not job:
+    jobs = crud.buscar_proximos_pendentes(db, n=count)
+    if not jobs:
         return Response(status_code=204)
-    return {
-        "job_id":        job.id,
-        "cnpj":          job.cnpj,
-        "ano":           job.ano,
-        "meses_com_pdf": job.payload_enviado.get("meses_com_pdf", []),
-    }
+    return [
+        {
+            "job_id":        job.id,
+            "cnpj":          job.cnpj,
+            "ano":           job.ano,
+            "meses_com_pdf": job.payload_enviado.get("meses_com_pdf", []),
+        }
+        for job in jobs
+    ]
 
 
 @router.post("/concluir/{job_id}", summary="Worker posta resultado de um job")

@@ -101,19 +101,18 @@ def criar_job(db: Session, job_id: str, cnpj: str, ano: str,
     return job
 
 
-def buscar_proximo_pendente(db: Session) -> Optional[models.DASJob]:
-    job = (
+def buscar_proximos_pendentes(db: Session, n: int = 1) -> list[models.DASJob]:
+    jobs = (
         db.query(models.DASJob)
         .filter_by(status="pendente")
         .order_by(models.DASJob.iniciado_em)
-        .first()
+        .limit(n)
+        .all()
     )
-    if not job:
-        return None
-    job.status = "processando"
+    for job in jobs:
+        job.status = "processando"
     db.commit()
-    db.refresh(job)
-    return job
+    return jobs
 
 
 def finalizar_job_sucesso_com_resultado(
