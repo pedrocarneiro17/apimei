@@ -5,6 +5,7 @@ import os
 import random
 import asyncio
 import logging
+import httpx
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
@@ -12,11 +13,12 @@ from playwright_stealth import Stealth
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [SCRAPER] %(message)s")
 _log = logging.getLogger(__name__)
 
-URL_BASE      = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
-HEADLESS      = os.getenv("HEADLESS", "false").lower() == "true"
-PAUSA_MS      = int(os.getenv("PAUSA_MS", "1500"))
-# Delay aleatório máximo antes de abrir o browser (evita burst de requisições simultâneas)
-DELAY_MAX_S   = int(os.getenv("DELAY_MAX_S", "10"))
+URL_BASE         = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
+HEADLESS         = os.getenv("HEADLESS", "false").lower() == "true"
+PAUSA_MS         = int(os.getenv("PAUSA_MS", "1500"))
+DELAY_MAX_S      = int(os.getenv("DELAY_MAX_S", "10"))
+TWOCAPTCHA_KEY   = os.getenv("TWOCAPTCHA_KEY", "")
+HCAPTCHA_SITEKEY = "2c0f2c5b-d8b9-469a-98ec-56271c2f68e4"
 
 
 def _agora() -> datetime:
@@ -86,7 +88,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             await page.wait_for_timeout(PAUSA_MS)
             await page.locator('input[type="text"]').fill(cnpj)
             await page.wait_for_timeout(800)
-            await page.locator('button[type="submit"]').click()
+            await _resolver_hcaptcha(page, HCAPTCHA_SITEKEY, f"{URL_BASE}/Identificacao")
 
             try:
                 await page.wait_for_url("**/Inicio", timeout=25000)
@@ -187,6 +189,58 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             await browser.close()
 
     return resultado
+
+
+# ── hCaptcha ─────────────────────────────────────────────────────────────────
+
+async def _resolver_hcaptcha(page: Page, sitekey: str, pageurl: str) -> None:
+    if not TWOCAPTCHA_KEY:
+        raise ScraperError(
+            "CaptchaConfig",
+            "hCaptcha detectado. Configure TWOCAPTCHA_KEY no ambiente.",
+            "login",
+        )
+
+    _log.info("hcaptcha: enviando tarefa para 2captcha...")
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post("https://2captcha.com/in.php", data={
+            "key":     TWOCAPTCHA_KEY,
+            "method":  "hcaptcha",
+            "sitekey": sitekey,
+            "pageurl": pageurl,
+        })
+        resp.raise_for_status()
+        if not resp.text.startswith("OK|"):
+            raise ScraperError("CaptchaAPI", f"2captcha recusou: {resp.text}", "login")
+        task_id = resp.text.split("|")[1]
+
+    _log.info("hcaptcha: aguardando resolução (task_id=%s)...", task_id)
+    token = None
+    async with httpx.AsyncClient(timeout=15) as client:
+        for _ in range(24):
+            await asyncio.sleep(5)
+            resp = await client.get("https://2captcha.com/res.php", params={
+                "key": TWOCAPTCHA_KEY, "action": "get", "id": task_id,
+            })
+            if resp.text == "CAPCHA_NOT_READY":
+                continue
+            if resp.text.startswith("OK|"):
+                token = resp.text.split("|")[1]
+                break
+            raise ScraperError("CaptchaAPI", f"2captcha erro: {resp.text}", "login")
+
+    if not token:
+        raise ScraperError("CaptchaTimeout", "2captcha não resolveu em 120s", "login")
+
+    _log.info("hcaptcha: token recebido, submetendo formulário...")
+    await page.evaluate(f"""
+        (() => {{
+            const ta = document.querySelector('textarea[name="h-captcha-response"]');
+            if (ta) ta.value = {repr(token)};
+            const form = document.querySelector('#identificacao');
+            if (form) form.submit();
+        }})();
+    """)
 
 
 # ── Debug ────────────────────────────────────────────────────────────────────
