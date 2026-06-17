@@ -11,6 +11,7 @@ from playwright_stealth import Stealth
 URL_BASE      = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
 HEADLESS      = os.getenv("HEADLESS", "false").lower() == "true"
 PAUSA_MS      = int(os.getenv("PAUSA_MS", "1500"))
+# Delay aleatório máximo antes de abrir o browser (evita burst de requisições simultâneas)
 DELAY_MAX_S   = int(os.getenv("DELAY_MAX_S", "10"))
 
 
