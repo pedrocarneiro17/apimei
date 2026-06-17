@@ -13,6 +13,19 @@ import sys
 import time
 import base64
 import asyncio
+import logging
+
+_log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker.log")
+logging.basicConfig(
+    filename=_log_file,
+    level=logging.INFO,
+    format="%(asctime)s %(message)s",
+    encoding="utf-8",
+)
+log = logging.getLogger()
+log.addHandler(logging.StreamHandler(sys.stdout))
+
+log.info("=== Worker iniciando ===")
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -20,7 +33,9 @@ if sys.platform == "win32":
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(_env_path)
+log.info(f"Carregado .env de: {_env_path}")
 
 from app.scraper import processar_das
 
@@ -29,9 +44,10 @@ WORKER_KEY = os.getenv("WORKER_KEY", "")
 INTERVALO  = int(os.getenv("WORKER_POLL_INTERVAL", "5"))
 
 if not API_URL or not WORKER_KEY:
-    print("[worker] ERRO: defina WORKER_API_URL e WORKER_KEY no .env")
+    log.error("ERRO: defina WORKER_API_URL e WORKER_KEY no .env")
     sys.exit(1)
 
+log.info(f"API: {API_URL} | intervalo: {INTERVALO}s")
 HEADERS = {"X-Worker-Key": WORKER_KEY}
 
 
@@ -61,7 +77,7 @@ def serializar_pdfs(resultado: dict) -> dict:
 
 
 def main():
-    print(f"[worker] Iniciando | API: {API_URL} | intervalo: {INTERVALO}s")
+    log.info("Loop iniciado")
     while True:
         try:
             job = buscar_proximo()
@@ -74,7 +90,7 @@ def main():
             ano           = job["ano"]
             meses_com_pdf = set(job.get("meses_com_pdf", []))
 
-            print(f"[worker] Job {job_id} | CNPJ {cnpj} / {ano}")
+            log.info(f"Job {job_id} | CNPJ {cnpj} / {ano}")
 
             try:
                 resultado = asyncio.run(processar_das(cnpj, ano, meses_com_pdf))
@@ -90,10 +106,10 @@ def main():
                 }
 
             enviar_resultado(job_id, resultado)
-            print(f"[worker] Job {job_id} concluído | sucesso: {resultado.get('sucesso')}")
+            log.info(f"Job {job_id} concluído | sucesso: {resultado.get('sucesso')}")
 
         except Exception as exc:
-            print(f"[worker] Erro no loop: {exc}")
+            log.error(f"Erro no loop: {exc}")
             time.sleep(INTERVALO)
 
 
