@@ -123,10 +123,11 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
 
             # ── 2. Navega para Emitir DAS ────────────────────────────
             etapa = "navegar_emissao"
-            await page.wait_for_timeout(PAUSA_MS)
-            await page.get_by_text("Emitir Guia de Pagamento (DAS)").click()
+            emitir_btn = page.get_by_text("Emitir Guia de Pagamento (DAS)")
+            await emitir_btn.wait_for(state="visible", timeout=10000)
+            await emitir_btn.click()
             await page.wait_for_url("**/emissao", timeout=15000)
-            await page.wait_for_timeout(PAUSA_MS)
+            await page.wait_for_selector("table tbody tr, button.dropdown-toggle", timeout=15000)
 
             # ── 3. Seleciona o ano ───────────────────────────────────
             etapa = "selecionar_ano"
@@ -179,13 +180,15 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
 # ── Helpers internos ─────────────────────────────────────────────────────────
 
 async def _selecionar_ano(page: Page, ano: str) -> None:
-    await page.locator("button.dropdown-toggle").first.click()
-    await page.wait_for_timeout(1500)
+    dropdown = page.locator("button.dropdown-toggle").first
+    await dropdown.wait_for(state="visible", timeout=8000)
+    await dropdown.click()
     opcao = page.locator(".dropdown-menu li").filter(has_text=ano).first
     await opcao.wait_for(state="visible", timeout=8000)
     await opcao.click()
-    await page.wait_for_timeout(800)
-    await page.locator("button[type='submit']").click()
+    submit = page.locator("button[type='submit']")
+    await submit.wait_for(state="visible", timeout=5000)
+    await submit.click()
 
 
 async def _ler_tabela(page: Page, ano_int: int, meses_com_pdf: set) -> list[dict]:
@@ -243,10 +246,9 @@ async def _gerar_pdf_mes(page: Page, context: BrowserContext,
 
     # Volta à página de emissão
     await page.goto(f"{URL_BASE}/emissao")
-    await page.wait_for_timeout(PAUSA_MS)
+    await page.wait_for_selector("button.dropdown-toggle", timeout=15000)
     await _selecionar_ano(page, ano)
     await page.wait_for_selector("table tbody tr", timeout=20000)
-    await page.wait_for_timeout(PAUSA_MS)
 
     # Marca só o checkbox do período desejado
     rows = await page.locator("table tbody tr").all()
@@ -269,9 +271,10 @@ async def _gerar_pdf_mes(page: Page, context: BrowserContext,
 
     await context.route("**/emissao/imprimir**", interceptar)
 
-    await page.get_by_text("Apurar/Gerar DAS").click()
+    apurar_btn = page.get_by_text("Apurar/Gerar DAS")
+    await apurar_btn.wait_for(state="visible", timeout=10000)
+    await apurar_btn.click()
     await page.wait_for_url("**/gerarDas", timeout=25000)
-    await page.wait_for_timeout(PAUSA_MS)
 
     try:
         async with context.expect_page(timeout=10000) as popup_info:
