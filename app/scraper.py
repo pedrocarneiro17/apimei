@@ -6,6 +6,7 @@ import random
 import asyncio
 import logging
 import httpx
+from urllib.parse import urlparse
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
@@ -76,8 +77,13 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             ],
         )
         if PROXY_URL:
-            launch_kwargs["proxy"] = {"server": PROXY_URL}
-            _log.info("usando proxy: %s", PROXY_URL.split("@")[-1])
+            _parsed = urlparse(PROXY_URL)
+            _proxy = {"server": f"{_parsed.scheme}://{_parsed.hostname}:{_parsed.port}"}
+            if _parsed.username:
+                _proxy["username"] = _parsed.username
+                _proxy["password"] = _parsed.password or ""
+            launch_kwargs["proxy"] = _proxy
+            _log.info("usando proxy: %s:%s", _parsed.hostname, _parsed.port)
         browser = await p.chromium.launch(**launch_kwargs)
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
