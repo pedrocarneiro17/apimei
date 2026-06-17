@@ -4,7 +4,6 @@ Worker local — executa scraping com IP residencial e posta resultado na API.
 Configuração (.env ou variáveis de ambiente):
   WORKER_API_URL        URL da API no Railway/Render
   WORKER_KEY            Chave secreta (mesma configurada no servidor)
-  WORKER_CONCURRENT     Jobs em paralelo (padrão: 5)
   WORKER_POLL_INTERVAL  Segundos entre polls quando fila vazia (padrão: 5)
 """
 import os
@@ -40,7 +39,7 @@ from app.scraper import processar_das
 
 API_URL    = os.getenv("WORKER_API_URL", "").rstrip("/")
 WORKER_KEY = os.getenv("WORKER_KEY", "")
-CONCURRENT = int(os.getenv("WORKER_CONCURRENT", "5"))
+CONCURRENT = 5
 INTERVALO  = int(os.getenv("WORKER_POLL_INTERVAL", "5"))
 
 if not API_URL or not WORKER_KEY:
