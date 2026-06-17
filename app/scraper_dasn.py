@@ -9,9 +9,13 @@ from datetime import datetime, timedelta
 
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
-from .browser_utils import BROWSER_PROFILE_DIR, HEADLESS, LAUNCH_ARGS, simular_humano, digitar_cnpj
+from .browser_utils import (
+    BROWSER_PROFILE_DIR, HEADLESS, LAUNCH_ARGS,
+    simular_humano, digitar_cnpj, resolver_hcaptcha,
+)
 
-URL_DASN    = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao"
+URL_DASN         = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao"
+HCAPTCHA_SITEKEY = "d787501d-4bd8-4262-bef0-e5ab524cbc8f"
 PAUSA_MS    = int(os.getenv("PAUSA_MS", "1500"))
 DELAY_MAX_S = int(os.getenv("DELAY_MAX_S", "10"))
 
@@ -74,9 +78,9 @@ async def consultar_dasn(cnpj: str) -> dict:
 
             # Comportamento humano antes de interagir com o formulário
             await simular_humano(page)
-            # IDs confirmados via inspeção: #identificacao-cnpj / #identificacao-continuar
             await digitar_cnpj(page, "#identificacao-cnpj", cnpj)
-            await page.locator("#identificacao-continuar").click()
+            # Resolve hCaptcha invisível via 2captcha e submete o formulário
+            await resolver_hcaptcha(page, HCAPTCHA_SITEKEY, URL_DASN)
 
             # Aguarda saída da página de identificação (o POST redireciona para /Inicio ou similar)
             try:
