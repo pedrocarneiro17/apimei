@@ -4,9 +4,13 @@ Scraper PGMEI — automatiza a Receita Federal para coletar situação dos DAS.
 import os
 import random
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright, BrowserContext, Page
 from playwright_stealth import Stealth
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [SCRAPER] %(message)s")
+_log = logging.getLogger(__name__)
 
 URL_BASE      = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app"
 HEADLESS      = os.getenv("HEADLESS", "false").lower() == "true"
@@ -77,6 +81,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
         try:
             # ── 1. Login ─────────────────────────────────────────────
             etapa = "login"
+            _log.info("cnpj=%s ano=%s etapa=login — navegando para Identificacao", cnpj, ano)
             await page.goto(f"{URL_BASE}/Identificacao")
             await page.wait_for_timeout(PAUSA_MS)
             await page.locator('input[type="text"]').fill(cnpj)
@@ -87,6 +92,10 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
                 await page.wait_for_url("**/Inicio", timeout=25000)
             except Exception:
                 html = await page.content()
+                url_atual = page.url
+                _log.warning("cnpj=%s etapa=login url=%s — falhou aguardando /Inicio", cnpj, url_atual)
+                await _salvar_screenshot(page, cnpj, "login")
+                _log.warning("html_trecho=%s", html[:500].replace("\n", " "))
                 if any(w in html.lower() for w in ["captcha", "robô", "robot"]):
                     raise ScraperError(
                         "CaptchaDetectado",
@@ -123,6 +132,7 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
 
             # ── 2. Navega para Emitir DAS ────────────────────────────
             etapa = "navegar_emissao"
+            _log.info("cnpj=%s etapa=navegar_emissao url=%s", cnpj, page.url)
             await page.wait_for_timeout(PAUSA_MS)
             await page.get_by_text("Emitir Guia de Pagamento (DAS)").click()
             await page.wait_for_url("**/emissao", timeout=15000)
@@ -161,11 +171,14 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             })
 
         except ScraperError as exc:
+            _log.error("cnpj=%s etapa=%s erro=%s: %s", cnpj, exc.etapa, exc.tipo, exc.mensagem)
             resultado["erro"] = {
                 "tipo": exc.tipo, "mensagem": exc.mensagem,
                 "etapa": exc.etapa, "timestamp": _agora().isoformat(),
             }
         except Exception as exc:
+            _log.error("cnpj=%s etapa=%s erro=%s: %s", cnpj, etapa, type(exc).__name__, exc)
+            await _salvar_screenshot(page, cnpj, etapa)
             resultado["erro"] = {
                 "tipo": type(exc).__name__, "mensagem": str(exc),
                 "etapa": etapa, "timestamp": _agora().isoformat(),
@@ -174,6 +187,18 @@ async def processar_das(cnpj: str, ano: str, meses_com_pdf: set | None = None) -
             await browser.close()
 
     return resultado
+
+
+# ── Debug ────────────────────────────────────────────────────────────────────
+
+async def _salvar_screenshot(page: Page, cnpj: str, etapa: str) -> None:
+    try:
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        path = f"/tmp/pgmei_{cnpj}_{etapa}_{ts}.png"
+        await page.screenshot(path=path, full_page=True)
+        _log.info("screenshot salvo: %s", path)
+    except Exception as e:
+        _log.warning("nao foi possivel salvar screenshot: %s", e)
 
 
 # ── Helpers internos ─────────────────────────────────────────────────────────
