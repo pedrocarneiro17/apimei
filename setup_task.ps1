@@ -2,7 +2,7 @@
 # Execute como Administrador: powershell -ExecutionPolicy Bypass -File setup_task.ps1
 
 $TaskName     = "APIMEI Worker"
-$PythonExe    = (Get-Command python).Source
+$PythonExe    = (Get-Command python).Source -replace "python\.exe$", "pythonw.exe"
 $WorkerDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $WorkerScript = Join-Path $WorkerDir "worker.py"
 
