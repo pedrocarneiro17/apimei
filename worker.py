@@ -21,7 +21,8 @@ logging.basicConfig(
     encoding="utf-8",
 )
 log = logging.getLogger()
-log.addHandler(logging.StreamHandler(sys.stdout))
+if sys.stdout is not None:
+    log.addHandler(logging.StreamHandler(sys.stdout))
 
 log.info("=== Worker iniciando ===")
 
